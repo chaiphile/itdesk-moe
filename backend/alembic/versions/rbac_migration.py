@@ -20,14 +20,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Create roles table
-    op.create_table('roles',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(), nullable=False),
-        sa.Column('permissions', sa.Text(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('name')
-    )
+    # Check if roles table exists before creating it
+    from sqlalchemy import text
+    conn = op.get_bind()
+    
+    # For PostgreSQL, check if table exists
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'roles'
+        );
+    """)).scalar()
+    
+    # Only create table if it doesn't exist
+    if not result:
+        op.create_table('roles',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('name', sa.String(), nullable=False),
+            sa.Column('permissions', sa.Text(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('name')
+        )
     op.create_index(op.f('ix_roles_id'), 'roles', ['id'], unique=False)
     op.create_index(op.f('ix_roles_name'), 'roles', ['name'], unique=True)
 
@@ -59,7 +72,21 @@ def downgrade() -> None:
     op.drop_column('users', 'username')
     op.drop_column('users', 'role_id')
 
-    # Drop roles table
-    op.drop_index(op.f('ix_roles_name'), table_name='roles')
-    op.drop_index(op.f('ix_roles_id'), table_name='roles')
-    op.drop_table('roles')
+    # Check if roles table exists before dropping it
+    from sqlalchemy import text
+    conn = op.get_bind()
+    
+    # For PostgreSQL, check if table exists
+    result = conn.execute(text("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'roles'
+        );
+    """)).scalar()
+    
+    # Only drop table if it exists
+    if result:
+        # Drop roles table
+        op.drop_index(op.f('ix_roles_name'), table_name='roles')
+        op.drop_index(op.f('ix_roles_id'), table_name='roles')
+        op.drop_table('roles')

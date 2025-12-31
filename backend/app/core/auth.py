@@ -31,8 +31,8 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     user = db.query(User).filter(User.username == username).first()
     if not user:
         return False
-    # For now, we'll skip password verification since we don't have password hashing implemented
-    # In a real app, you'd verify the password hash here
+    if not verify_password(password, user.hashed_password):
+        return False
     return user
 
 
@@ -72,6 +72,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def check_role(required_role: str):
     """Dependency to check if user has required role."""
     def role_checker(current_user: User = Depends(get_current_user)):
+        if not current_user.role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User has no role assigned"
+            )
         if current_user.role.name != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -79,3 +84,30 @@ def check_role(required_role: str):
             )
         return current_user
     return role_checker
+
+
+def check_permission(required_permission: str):
+    """Dependency to check if user has required permission."""
+    def permission_checker(current_user: User = Depends(get_current_user)):
+        if not current_user.role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User has no role assigned"
+            )
+        
+        permissions = current_user.role.permissions
+        if not permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User role has no permissions assigned"
+            )
+        
+        # Parse permissions (comma-separated or space-separated)
+        permission_list = [p.strip() for p in permissions.split(',')]
+        if required_permission not in permission_list:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission '{required_permission}' is required"
+            )
+        return current_user
+    return permission_checker

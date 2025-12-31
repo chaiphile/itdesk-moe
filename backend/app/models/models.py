@@ -22,6 +22,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
     role_id = Column(Integer, ForeignKey("roles.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

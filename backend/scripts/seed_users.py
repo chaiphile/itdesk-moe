@@ -4,6 +4,7 @@
 from sqlalchemy.orm import sessionmaker
 from app.db.session import engine
 from app.models.models import User, Role
+from app.core.auth import get_password_hash
 
 # Create session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -29,13 +30,14 @@ def seed_users():
 
         # Create test users
         users_data = [
-            {"username": "admin", "email": "admin@example.com", "role_id": admin_role.id},
-            {"username": "user1", "email": "user1@example.com", "role_id": user_role.id},
-            {"username": "user2", "email": "user2@example.com", "role_id": user_role.id},
+            {"username": "admin", "email": "admin@example.com", "password": "admin123", "role_id": admin_role.id},
+            {"username": "user1", "email": "user1@example.com", "password": "user123", "role_id": user_role.id},
+            {"username": "user2", "email": "user2@example.com", "password": "user456", "role_id": user_role.id},
         ]
 
         for user_data in users_data:
-            user = User(**user_data)
+            password = user_data.pop("password")
+            user = User(**user_data, hashed_password=get_password_hash(password))
             db.add(user)
 
         db.commit()
@@ -48,6 +50,10 @@ def seed_users():
         print(f"Error seeding users: {e}")
     finally:
         db.close()
+
+if __name__ == "__main__":
+    seed_users()
+
 
 if __name__ == "__main__":
     seed_users()
