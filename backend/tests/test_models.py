@@ -1,7 +1,9 @@
 """Tests for database models and operations."""
+
 import pytest
 from sqlalchemy.exc import IntegrityError
-from app.models.models import Role, User, Team, Ticket
+
+from app.models.models import Role, Team, Ticket, User
 
 
 class TestRoleModel:
@@ -13,7 +15,7 @@ class TestRoleModel:
         db.add(role)
         db.commit()
         db.refresh(role)
-        
+
         assert role.id is not None
         assert role.name == "admin"
         assert role.permissions == "read,write,delete"
@@ -22,7 +24,7 @@ class TestRoleModel:
         """Test that role names must be unique."""
         duplicate_role = Role(name="admin", permissions="read")
         db.add(duplicate_role)
-        
+
         with pytest.raises(IntegrityError):
             db.commit()
 
@@ -38,15 +40,11 @@ class TestUserModel:
 
     def test_create_user(self, db, sample_role):
         """Test creating a user."""
-        user = User(
-            username="newuser",
-            email="new@example.com",
-            role_id=sample_role.id
-        )
+        user = User(username="newuser", email="new@example.com", role_id=sample_role.id)
         db.add(user)
         db.commit()
         db.refresh(user)
-        
+
         assert user.id is not None
         assert user.username == "newuser"
         assert user.email == "new@example.com"
@@ -57,10 +55,10 @@ class TestUserModel:
         duplicate_user = User(
             username="testuser",
             email="different@example.com",
-            role_id=sample_user.role_id
+            role_id=sample_user.role_id,
         )
         db.add(duplicate_user)
-        
+
         with pytest.raises(IntegrityError):
             db.commit()
 
@@ -69,10 +67,10 @@ class TestUserModel:
         duplicate_user = User(
             username="differentuser",
             email="test@example.com",
-            role_id=sample_user.role_id
+            role_id=sample_user.role_id,
         )
         db.add(duplicate_user)
-        
+
         with pytest.raises(IntegrityError):
             db.commit()
 
@@ -91,7 +89,7 @@ class TestTeamModel:
         db.add(team)
         db.commit()
         db.refresh(team)
-        
+
         assert team.id is not None
         assert team.name == "Engineering"
         assert team.description == "Engineering team"
@@ -100,7 +98,7 @@ class TestTeamModel:
         """Test that team names must be unique."""
         duplicate_team = Team(name="Support Team", description="Different team")
         db.add(duplicate_team)
-        
+
         with pytest.raises(IntegrityError):
             db.commit()
 
@@ -116,12 +114,12 @@ class TestTicketModel:
             status="OPEN",
             priority="HIGH",
             user_id=sample_user.id,
-            team_id=sample_team.id
+            team_id=sample_team.id,
         )
         db.add(ticket)
         db.commit()
         db.refresh(ticket)
-        
+
         assert ticket.id is not None
         assert ticket.title == "Bug Report"
         assert ticket.status == "OPEN"
@@ -129,15 +127,11 @@ class TestTicketModel:
 
     def test_ticket_default_status(self, db, sample_user):
         """Test ticket default status."""
-        ticket = Ticket(
-            title="New Ticket",
-            description="Test",
-            user_id=sample_user.id
-        )
+        ticket = Ticket(title="New Ticket", description="Test", user_id=sample_user.id)
         db.add(ticket)
         db.commit()
         db.refresh(ticket)
-        
+
         assert ticket.status == "OPEN"
         assert ticket.priority == "MED"
 

@@ -1,4 +1,5 @@
 """Tests for API endpoints."""
+
 import pytest
 
 
@@ -62,8 +63,8 @@ class TestAdminEndpoints:
 
     def test_admin_forbidden_for_non_admin(self, client, db):
         """Admin endpoint returns 403 for a user with non-admin role."""
-        from app.models.models import Role, User
         from app.core.auth import create_access_token
+        from app.models.models import Role, User
 
         # Create a non-admin role and a user
         user_role = Role(name="user", permissions="read,write")
@@ -71,7 +72,9 @@ class TestAdminEndpoints:
         db.commit()
         db.refresh(user_role)
 
-        normal = User(username="normal", email="normal@example.com", role_id=user_role.id)
+        normal = User(
+            username="normal", email="normal@example.com", role_id=user_role.id
+        )
         db.add(normal)
         db.commit()
         db.refresh(normal)

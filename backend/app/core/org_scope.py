@@ -1,8 +1,8 @@
 from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from app.models.models import OrgUnit
-
 
 SCOPE_LEVELS = ("SELF", "SCHOOL", "REGION", "PROVINCE", "MINISTRY")
 
@@ -11,7 +11,9 @@ def _padded(id_: int) -> str:
     return f"{id_:08d}"
 
 
-def get_ancestor_by_type(db: Session, org_unit_id: int, target_type: str) -> Optional[int]:
+def get_ancestor_by_type(
+    db: Session, org_unit_id: int, target_type: str
+) -> Optional[int]:
     """Return the nearest ancestor id of given type, or None."""
     org = db.query(OrgUnit).filter(OrgUnit.id == org_unit_id).first()
     if org is None:
@@ -67,7 +69,9 @@ def get_scope_root_path(db: Session, viewer_org_unit_id: int, scope_level: str) 
     return viewer.path
 
 
-def is_orgunit_in_scope(db: Session, viewer_org_unit_id: int, scope_level: str, target_org_unit_id: int) -> bool:
+def is_orgunit_in_scope(
+    db: Session, viewer_org_unit_id: int, scope_level: str, target_org_unit_id: int
+) -> bool:
     """Return True if target org unit is within the viewer's scope."""
     if viewer_org_unit_id is None or target_org_unit_id is None:
         return False

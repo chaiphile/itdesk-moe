@@ -1,6 +1,6 @@
 from app.core.auth import create_access_token
 from app.core.org_unit import create_org_unit
-from app.models.models import User, Ticket, Role, AuditLog
+from app.models.models import AuditLog, Role, Ticket, User
 
 
 def _auth_headers_for_user(username: str):
@@ -23,16 +23,38 @@ def test_confidential_portal_access(client, db):
     db.refresh(role_priv)
 
     # Users
-    user_normal = User(username="normal_user", email="n@example.com", role_id=role_normal.id, org_unit_id=school.id)
-    user_priv = User(username="priv_user", email="p@example.com", role_id=role_priv.id, org_unit_id=school.id)
+    user_normal = User(
+        username="normal_user",
+        email="n@example.com",
+        role_id=role_normal.id,
+        org_unit_id=school.id,
+    )
+    user_priv = User(
+        username="priv_user",
+        email="p@example.com",
+        role_id=role_priv.id,
+        org_unit_id=school.id,
+    )
     db.add_all([user_normal, user_priv])
     db.commit()
     db.refresh(user_normal)
     db.refresh(user_priv)
 
     # Create tickets in same org: one regular, one confidential
-    t_regular = Ticket(title="R", description="reg", created_by=user_priv.id, owner_org_unit_id=school.id, sensitivity_level="REGULAR")
-    t_conf = Ticket(title="C", description="conf", created_by=user_priv.id, owner_org_unit_id=school.id, sensitivity_level="CONFIDENTIAL")
+    t_regular = Ticket(
+        title="R",
+        description="reg",
+        created_by=user_priv.id,
+        owner_org_unit_id=school.id,
+        sensitivity_level="REGULAR",
+    )
+    t_conf = Ticket(
+        title="C",
+        description="conf",
+        created_by=user_priv.id,
+        owner_org_unit_id=school.id,
+        sensitivity_level="CONFIDENTIAL",
+    )
     db.add_all([t_regular, t_conf])
     db.commit()
     db.refresh(t_regular)
@@ -52,7 +74,15 @@ def test_confidential_portal_access(client, db):
     assert resp.status_code == 404
 
     # Ensure audit row exists for denial
-    audit = db.query(AuditLog).filter(AuditLog.entity_type == "ticket_confidential", AuditLog.entity_id == t_conf.id, AuditLog.action == "PERMISSION_DENIED").first()
+    audit = (
+        db.query(AuditLog)
+        .filter(
+            AuditLog.entity_type == "ticket_confidential",
+            AuditLog.entity_id == t_conf.id,
+            AuditLog.action == "PERMISSION_DENIED",
+        )
+        .first()
+    )
     assert audit is not None
 
     # user_priv: should see both in /tickets/mine and GET by id returns 200

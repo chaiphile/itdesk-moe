@@ -1,6 +1,6 @@
 from app.core.auth import create_access_token
-from app.models.models import AuditLog, Ticket
 from app.core.org_unit import create_org_unit
+from app.models.models import AuditLog, Ticket
 
 
 def test_ticket_create_writes_audit(db, client, sample_user, sample_role):
@@ -31,13 +31,26 @@ def test_permission_denied_writes_audit(db, client, sample_role):
 
     from app.models.models import User
 
-    user = User(username="u1", email="u1@e", role_id=sample_role.id, org_unit_id=school_a.id, scope_level="SELF")
+    user = User(
+        username="u1",
+        email="u1@e",
+        role_id=sample_role.id,
+        org_unit_id=school_a.id,
+        scope_level="SELF",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
 
     # Create a ticket owned by school_b
-    t = Ticket(title="Secret", description="x", status="OPEN", priority="MED", user_id=user.id, owner_org_unit_id=school_b.id)
+    t = Ticket(
+        title="Secret",
+        description="x",
+        status="OPEN",
+        priority="MED",
+        user_id=user.id,
+        owner_org_unit_id=school_b.id,
+    )
     db.add(t)
     db.commit()
     db.refresh(t)

@@ -1,6 +1,6 @@
 from app.core.auth import create_access_token
 from app.core.org_unit import create_org_unit
-from app.models.models import User, Ticket
+from app.models.models import Ticket, User
 
 
 def _auth_headers_for_user(username: str):
@@ -13,13 +13,19 @@ def test_cannot_spoof_owner_org_unit_id(client, db):
     school_a = create_org_unit(db, name="A", type="school")
     school_b = create_org_unit(db, name="B", type="school")
 
-    user = User(username="u1", email="u1@example.com", role_id=None, org_unit_id=school_a.id)
+    user = User(
+        username="u1", email="u1@example.com", role_id=None, org_unit_id=school_a.id
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
 
     headers = _auth_headers_for_user(user.username)
-    payload = {"title": "Spoof", "description": "attempt", "owner_org_unit_id": school_b.id}
+    payload = {
+        "title": "Spoof",
+        "description": "attempt",
+        "owner_org_unit_id": school_b.id,
+    }
     resp = client.post("/tickets", json=payload, headers=headers)
     assert resp.status_code == 201
     data = resp.json()
@@ -43,13 +49,26 @@ def test_scope_list_and_get(client, db):
     db.commit()
     db.refresh(author)
 
-    t1 = Ticket(title="T1", description="d", created_by=author.id, owner_org_unit_id=school.id)
-    t2 = Ticket(title="T2", description="d", created_by=author.id, owner_org_unit_id=other_school.id)
+    t1 = Ticket(
+        title="T1", description="d", created_by=author.id, owner_org_unit_id=school.id
+    )
+    t2 = Ticket(
+        title="T2",
+        description="d",
+        created_by=author.id,
+        owner_org_unit_id=other_school.id,
+    )
     db.add_all([t1, t2])
     db.commit()
 
     # SELF-scoped user at school should see only tickets under their own org
-    user_self = User(username="selfuser", email="s@e", role_id=None, org_unit_id=school.id, scope_level="SELF")
+    user_self = User(
+        username="selfuser",
+        email="s@e",
+        role_id=None,
+        org_unit_id=school.id,
+        scope_level="SELF",
+    )
     db.add(user_self)
     db.commit()
     db.refresh(user_self)
@@ -62,7 +81,13 @@ def test_scope_list_and_get(client, db):
     assert all(t["owner_org_unit_id"] == school.id for t in data)
 
     # REGION-scoped user at region should see both schools under region
-    user_region = User(username="regionuser", email="r@e", role_id=None, org_unit_id=region.id, scope_level="REGION")
+    user_region = User(
+        username="regionuser",
+        email="r@e",
+        role_id=None,
+        org_unit_id=region.id,
+        scope_level="REGION",
+    )
     db.add(user_region)
     db.commit()
     db.refresh(user_region)

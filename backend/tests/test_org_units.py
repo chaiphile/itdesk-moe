@@ -4,7 +4,9 @@ from app.models.models import OrgUnit
 
 def test_create_org_unit_path_and_depth(db):
     province = create_org_unit(db, name="Province A", type="province")
-    district = create_org_unit(db, name="District X", type="district", parent_id=province.id)
+    district = create_org_unit(
+        db, name="District X", type="district", parent_id=province.id
+    )
     school = create_org_unit(db, name="School 1", type="school", parent_id=district.id)
     unit = create_org_unit(db, name="Unit 101", type="unit", parent_id=school.id)
 
@@ -23,7 +25,9 @@ def test_create_org_unit_path_and_depth(db):
 
 def test_get_descendants(db):
     province = create_org_unit(db, name="Province B", type="province")
-    district = create_org_unit(db, name="District Y", type="district", parent_id=province.id)
+    district = create_org_unit(
+        db, name="District Y", type="district", parent_id=province.id
+    )
     school = create_org_unit(db, name="School 2", type="school", parent_id=district.id)
     unit = create_org_unit(db, name="Unit 202", type="unit", parent_id=school.id)
 

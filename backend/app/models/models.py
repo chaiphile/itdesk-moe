@@ -6,17 +6,17 @@ column names where the DB already used legacy names (for example 'user_id').
 """
 
 from sqlalchemy import (
+    JSON,
+    CheckConstraint,
     Column,
-    Integer,
-    String,
-    Text,
     DateTime,
     ForeignKey,
     Index,
-    CheckConstraint,
+    Integer,
+    String,
+    Text,
     func,
 )
-from sqlalchemy import JSON
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
@@ -63,7 +63,9 @@ class Team(Base):
     org_unit_id = Column(Integer, ForeignKey("org_units.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    members = relationship(
+        "TeamMember", back_populates="team", cascade="all, delete-orphan"
+    )
     tickets = relationship("Ticket", back_populates="current_team")
 
 
@@ -76,7 +78,9 @@ class TeamMember(Base):
     role_in_team = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    __table_args__ = (Index("ux_team_members_team_user", "team_id", "user_id", unique=True),)
+    __table_args__ = (
+        Index("ux_team_members_team_user", "team_id", "user_id", unique=True),
+    )
 
     team = relationship("Team", back_populates="members")
     user = relationship("User")
@@ -96,9 +100,19 @@ class Ticket(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Map existing legacy column names to new attribute names where possible
-    created_by = Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
-    owner_org_unit_id = Column(Integer, ForeignKey("org_units.id"), nullable=True, index=True)
-    current_team_id = Column("team_id", Integer, ForeignKey("teams.id"), nullable=True, index=True)
+    created_by = Column(
+        "user_id",
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    owner_org_unit_id = Column(
+        Integer, ForeignKey("org_units.id"), nullable=True, index=True
+    )
+    current_team_id = Column(
+        "team_id", Integer, ForeignKey("teams.id"), nullable=True, index=True
+    )
     assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
 
@@ -114,18 +128,32 @@ class Ticket(Base):
     closed_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
-        CheckConstraint("priority IN ('LOW','MED','HIGH')", name="ck_tickets_priority_vals"),
-        CheckConstraint("status IN ('OPEN','IN_PROGRESS','WAITING','RESOLVED','CLOSED')", name="ck_tickets_status_vals"),
-        CheckConstraint("sensitivity_level IN ('REGULAR','CONFIDENTIAL')", name="ck_tickets_sensitivity_vals"),
+        CheckConstraint(
+            "priority IN ('LOW','MED','HIGH')", name="ck_tickets_priority_vals"
+        ),
+        CheckConstraint(
+            "status IN ('OPEN','IN_PROGRESS','WAITING','RESOLVED','CLOSED')",
+            name="ck_tickets_status_vals",
+        ),
+        CheckConstraint(
+            "sensitivity_level IN ('REGULAR','CONFIDENTIAL')",
+            name="ck_tickets_sensitivity_vals",
+        ),
     )
 
     # Relationships
-    created_by_user = relationship("User", foreign_keys=[created_by], back_populates="tickets")
+    created_by_user = relationship(
+        "User", foreign_keys=[created_by], back_populates="tickets"
+    )
     owner_org_unit = relationship("OrgUnit", foreign_keys=[owner_org_unit_id])
-    current_team = relationship("Team", foreign_keys=[current_team_id], back_populates="tickets")
+    current_team = relationship(
+        "Team", foreign_keys=[current_team_id], back_populates="tickets"
+    )
     assignee = relationship("User", foreign_keys=[assignee_id])
     category = relationship("Category")
-    messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
+    messages = relationship(
+        "TicketMessage", back_populates="ticket", cascade="all, delete-orphan"
+    )
 
     # Backwards-compatible attribute names used by older tests/code
     @property
@@ -162,10 +190,14 @@ class TicketMessage(Base):
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     type = Column(String, nullable=False, server_default="PUBLIC")
     body = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     __table_args__ = (
-        CheckConstraint("type IN ('PUBLIC','INTERNAL')", name="ck_ticket_messages_type_vals"),
+        CheckConstraint(
+            "type IN ('PUBLIC','INTERNAL')", name="ck_ticket_messages_type_vals"
+        ),
         Index("idx_ticket_messages_ticket_id_created_at", "ticket_id", "created_at"),
     )
 
@@ -205,7 +237,9 @@ class AuditLog(Base):
     entity_type = Column(String, nullable=False)
     entity_id = Column(Integer, nullable=True)
     diff_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
     ip = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
     meta_json = Column(JSON, nullable=True)

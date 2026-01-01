@@ -1,13 +1,20 @@
 from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
-from app.models.models import Ticket
-from app.core.org_scope import get_scope_root_path
-from app.core.auth import has_permission
 from app.core.audit import write_audit
+from app.core.auth import has_permission
+from app.core.org_scope import get_scope_root_path
+from app.models.models import Ticket
 
 
-def create_ticket(db: Session, title: str, description: str, created_by_user, priority: Optional[str] = None) -> Ticket:
+def create_ticket(
+    db: Session,
+    title: str,
+    description: str,
+    created_by_user,
+    priority: Optional[str] = None,
+) -> Ticket:
     """Create a ticket for the given user. Owner org unit is taken from user profile."""
     priority = (priority or "MED").upper()
     ticket = Ticket(
@@ -64,6 +71,7 @@ def list_tickets_in_scope(db: Session, current_user) -> List[Ticket]:
 
     # owner_org_unit.path exists on OrgUnit; use prefix match via join
     from app.models.models import OrgUnit
+
     query = (
         db.query(Ticket)
         .join(OrgUnit, Ticket.owner_org_unit_id == OrgUnit.id)

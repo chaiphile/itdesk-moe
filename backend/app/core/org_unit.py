@@ -1,6 +1,7 @@
 from typing import List, Optional
-from sqlalchemy.orm import Session
+
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.models.models import OrgUnit
 
@@ -9,7 +10,9 @@ def _padded(id_: int) -> str:
     return f"{id_:08d}"
 
 
-def create_org_unit(db: Session, name: str, type: str, parent_id: Optional[int] = None) -> OrgUnit:
+def create_org_unit(
+    db: Session, name: str, type: str, parent_id: Optional[int] = None
+) -> OrgUnit:
     """Create an OrgUnit using two-step insert to compute materialized path.
 
     - Insert with temporary path and depth=0
@@ -47,4 +50,6 @@ def get_descendants(db: Session, org_unit_id: int) -> List[OrgUnit]:
     if org is None:
         return []
     prefix = f"{org.path}/%"
-    return db.query(OrgUnit).filter(OrgUnit.path.like(prefix)).order_by(OrgUnit.path).all()
+    return (
+        db.query(OrgUnit).filter(OrgUnit.path.like(prefix)).order_by(OrgUnit.path).all()
+    )

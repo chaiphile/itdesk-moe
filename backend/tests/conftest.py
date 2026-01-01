@@ -1,15 +1,16 @@
 """Pytest configuration and fixtures for testing."""
+
 import os
+
+import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.db.session import Base, get_db
-from app.models.models import Role, User, Team, Ticket
-
+from app.main import app
+from app.models.models import Role, Team, Ticket, User
 
 # Use SQLite in-memory database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -38,6 +39,7 @@ def db():
 @pytest.fixture(scope="function")
 def client(db):
     """Create a test client with a fresh database."""
+
     def override_get_db():
         try:
             yield db
@@ -45,11 +47,11 @@ def client(db):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    
+
     # Create test client without running startup events
     test_client = TestClient(app, raise_server_exceptions=False)
     yield test_client
-    
+
     app.dependency_overrides.clear()
 
 
@@ -66,11 +68,7 @@ def sample_role(db):
 @pytest.fixture
 def sample_user(db, sample_role):
     """Create a sample user for testing."""
-    user = User(
-        username="testuser",
-        email="test@example.com",
-        role_id=sample_role.id
-    )
+    user = User(username="testuser", email="test@example.com", role_id=sample_role.id)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -96,7 +94,7 @@ def sample_ticket(db, sample_user, sample_team):
         status="OPEN",
         priority="HIGH",
         user_id=sample_user.id,
-        team_id=sample_team.id
+        team_id=sample_team.id,
     )
     db.add(ticket)
     db.commit()

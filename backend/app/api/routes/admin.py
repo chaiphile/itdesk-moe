@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.core.auth import check_role, check_permission, get_current_user
+from app.core.auth import check_permission, check_role, get_current_user
 from app.models.models import User
 
 router = APIRouter()
@@ -13,7 +13,7 @@ def admin_only(current_user: User = Depends(check_role("admin"))):
         "message": f"Welcome, admin {current_user.username}!",
         "role": current_user.role.name,
         "permissions": current_user.role.permissions,
-        "email": current_user.email
+        "email": current_user.email,
     }
 
 
@@ -23,7 +23,7 @@ def protected_route(current_user: User = Depends(check_role("user"))):
     return {
         "message": f"Hello, {current_user.username}!",
         "role": current_user.role.name,
-        "permissions": current_user.role.permissions
+        "permissions": current_user.role.permissions,
     }
 
 
@@ -33,7 +33,7 @@ def read_only_endpoint(current_user: User = Depends(check_permission("read"))):
     return {
         "message": f"Hello {current_user.username}, you have read permission",
         "role": current_user.role.name,
-        "permissions": current_user.role.permissions
+        "permissions": current_user.role.permissions,
     }
 
 
@@ -43,7 +43,7 @@ def write_resource(current_user: User = Depends(check_permission("write"))):
     return {
         "message": f"Resource created by {current_user.username}",
         "role": current_user.role.name,
-        "action": "write"
+        "action": "write",
     }
 
 
@@ -53,7 +53,7 @@ def admin_delete(current_user: User = Depends(check_permission("delete"))):
     return {
         "message": f"Resource deleted by {current_user.username}",
         "role": current_user.role.name,
-        "action": "delete"
+        "action": "delete",
     }
 
 
@@ -64,8 +64,7 @@ def list_users_info(current_user: User = Depends(check_role("admin"))):
         "current_user": {
             "username": current_user.username,
             "email": current_user.email,
-            "role": current_user.role.name
+            "role": current_user.role.name,
         },
-        "message": "Only admins can see this information"
+        "message": "Only admins can see this information",
     }
-

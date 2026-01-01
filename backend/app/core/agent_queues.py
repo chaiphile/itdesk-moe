@@ -1,9 +1,10 @@
 from typing import List
+
 from sqlalchemy.orm import Session
 
-from app.models.models import Ticket, OrgUnit, TeamMember
-from app.core.org_scope import get_scope_root_path
 from app.core.auth import has_permission
+from app.core.org_scope import get_scope_root_path
+from app.models.models import OrgUnit, TeamMember, Ticket
 
 
 def list_agent_queues(db: Session, current_user) -> List[Ticket]:
@@ -16,7 +17,12 @@ def list_agent_queues(db: Session, current_user) -> List[Ticket]:
     if user_id is None:
         return []
 
-    team_ids = [r[0] for r in db.query(TeamMember.team_id).filter(TeamMember.user_id == user_id).all()]
+    team_ids = [
+        r[0]
+        for r in db.query(TeamMember.team_id)
+        .filter(TeamMember.user_id == user_id)
+        .all()
+    ]
 
     # If user is not a team member and not role 'agent' (no direct role check here), return empty list
     if not team_ids:

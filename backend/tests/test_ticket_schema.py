@@ -1,14 +1,16 @@
 """Tests for new ticket core schema: tables, models and relationships."""
+
 import pytest
 from sqlalchemy.exc import IntegrityError
+
 from app.models.models import (
+    Category,
     OrgUnit,
-    User,
     Team,
     TeamMember,
     Ticket,
     TicketMessage,
-    Category,
+    User,
 )
 
 
@@ -22,7 +24,12 @@ def test_ticket_core_schema_and_relationships(db):
     db.refresh(child)
 
     # create user bound to a unit
-    user = User(username="ticketuser", email="ticket@example.com", role_id=None, org_unit_id=child.id)
+    user = User(
+        username="ticketuser",
+        email="ticket@example.com",
+        role_id=None,
+        org_unit_id=child.id,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -69,8 +76,12 @@ def test_ticket_core_schema_and_relationships(db):
     assert ticket.sensitivity_level == "REGULAR"
 
     # add two messages
-    m1 = TicketMessage(ticket_id=ticket.id, author_id=user.id, type="PUBLIC", body="Public message")
-    m2 = TicketMessage(ticket_id=ticket.id, author_id=user.id, type="INTERNAL", body="Internal note")
+    m1 = TicketMessage(
+        ticket_id=ticket.id, author_id=user.id, type="PUBLIC", body="Public message"
+    )
+    m2 = TicketMessage(
+        ticket_id=ticket.id, author_id=user.id, type="INTERNAL", body="Internal note"
+    )
     db.add_all([m1, m2])
     db.commit()
 

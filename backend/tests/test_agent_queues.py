@@ -1,6 +1,6 @@
 from app.core.auth import create_access_token
 from app.core.org_unit import create_org_unit
-from app.models.models import User, Ticket, Role, Team, TeamMember
+from app.models.models import Role, Team, TeamMember, Ticket, User
 
 
 def _auth_headers_for_user(username: str):
@@ -36,9 +36,27 @@ def test_agent_queues_filters(client, db):
     db.refresh(team_y)
 
     # Users
-    agent_a = User(username="agent_a", email="a@example.com", role_id=role_normal.id, org_unit_id=reg1.id, scope_level="REGION")
-    agent_b = User(username="agent_b", email="b@example.com", role_id=role_normal.id, org_unit_id=reg1.id, scope_level="REGION")
-    agent_priv = User(username="agent_priv", email="p@example.com", role_id=role_priv.id, org_unit_id=reg1.id, scope_level="REGION")
+    agent_a = User(
+        username="agent_a",
+        email="a@example.com",
+        role_id=role_normal.id,
+        org_unit_id=reg1.id,
+        scope_level="REGION",
+    )
+    agent_b = User(
+        username="agent_b",
+        email="b@example.com",
+        role_id=role_normal.id,
+        org_unit_id=reg1.id,
+        scope_level="REGION",
+    )
+    agent_priv = User(
+        username="agent_priv",
+        email="p@example.com",
+        role_id=role_priv.id,
+        org_unit_id=reg1.id,
+        scope_level="REGION",
+    )
     db.add_all([agent_a, agent_b, agent_priv])
     db.commit()
     db.refresh(agent_a)
@@ -53,13 +71,41 @@ def test_agent_queues_filters(client, db):
 
     # Tickets
     # t1: regular, in-scope (sch1), team_x
-    t1 = Ticket(title="T1", description="t1", created_by=agent_a.id, owner_org_unit_id=sch1.id, current_team_id=team_x.id, sensitivity_level="REGULAR")
+    t1 = Ticket(
+        title="T1",
+        description="t1",
+        created_by=agent_a.id,
+        owner_org_unit_id=sch1.id,
+        current_team_id=team_x.id,
+        sensitivity_level="REGULAR",
+    )
     # t2: regular, OUT of scope (sch2), team_x
-    t2 = Ticket(title="T2", description="t2", created_by=agent_a.id, owner_org_unit_id=sch2.id, current_team_id=team_x.id, sensitivity_level="REGULAR")
+    t2 = Ticket(
+        title="T2",
+        description="t2",
+        created_by=agent_a.id,
+        owner_org_unit_id=sch2.id,
+        current_team_id=team_x.id,
+        sensitivity_level="REGULAR",
+    )
     # t3: regular, in-scope, team_y
-    t3 = Ticket(title="T3", description="t3", created_by=agent_a.id, owner_org_unit_id=sch1.id, current_team_id=team_y.id, sensitivity_level="REGULAR")
+    t3 = Ticket(
+        title="T3",
+        description="t3",
+        created_by=agent_a.id,
+        owner_org_unit_id=sch1.id,
+        current_team_id=team_y.id,
+        sensitivity_level="REGULAR",
+    )
     # t4: confidential, in-scope, team_x
-    t4 = Ticket(title="T4", description="t4", created_by=agent_a.id, owner_org_unit_id=sch1.id, current_team_id=team_x.id, sensitivity_level="CONFIDENTIAL")
+    t4 = Ticket(
+        title="T4",
+        description="t4",
+        created_by=agent_a.id,
+        owner_org_unit_id=sch1.id,
+        current_team_id=team_x.id,
+        sensitivity_level="CONFIDENTIAL",
+    )
     db.add_all([t1, t2, t3, t4])
     db.commit()
     db.refresh(t1)
