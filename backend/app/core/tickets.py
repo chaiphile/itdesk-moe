@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.models import Ticket
 from app.core.org_scope import get_scope_root_path
+from app.core.auth import has_permission
 from app.core.audit import write_audit
 
 
@@ -63,11 +64,14 @@ def list_tickets_in_scope(db: Session, current_user) -> List[Ticket]:
 
     # owner_org_unit.path exists on OrgUnit; use prefix match via join
     from app.models.models import OrgUnit
-
-    return (
+    query = (
         db.query(Ticket)
         .join(OrgUnit, Ticket.owner_org_unit_id == OrgUnit.id)
         .filter(OrgUnit.path.startswith(scope_root))
-        .order_by(Ticket.created_at.desc())
-        .all()
     )
+
+    # If user lacks permission to view confidential tickets, exclude them in the DB query
+    if not has_permission(current_user, "CONFIDENTIAL_VIEW"):
+        query = query.filter(Ticket.sensitivity_level != "CONFIDENTIAL")
+
+    return query.order_by(Ticket.created_at.desc()).all()

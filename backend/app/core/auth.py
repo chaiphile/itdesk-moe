@@ -111,3 +111,14 @@ def check_permission(required_permission: str):
             )
         return current_user
     return permission_checker
+
+
+def has_permission(current_user, required_permission: str) -> bool:
+    """Return True if user has the given permission, otherwise False."""
+    if not current_user or not getattr(current_user, "role", None):
+        return False
+    permissions = current_user.role.permissions
+    if not permissions:
+        return False
+    permission_list = [p.strip() for p in permissions.split(',')]
+    return required_permission in permission_list

@@ -19,7 +19,7 @@ def seed_roles(db):
             return False
 
         roles_data = [
-            {"name": "admin", "permissions": "read,write,delete,admin"},
+            {"name": "admin", "permissions": "read,write,delete,admin,CONFIDENTIAL_VIEW"},
             {"name": "user", "permissions": "read,write"},
             {"name": "viewer", "permissions": "read"},
         ]
