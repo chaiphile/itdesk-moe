@@ -1,14 +1,14 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, with_loader_criteria
 
 from app.core import tickets as ticket_service
 from app.core.audit import write_audit
 from app.core.auth import get_current_user, has_permission
-from app.core.dependencies import require_org_scope
+from app.core.org_scope import is_orgunit_in_scope
 from app.db.session import get_db
-from app.models.models import Ticket, User
+from app.models.models import Ticket, User, TicketMessage
 
 router = APIRouter()
 
@@ -75,7 +75,17 @@ def get_ticket_by_id(
     request: Request = None,
 ):
     """Return ticket if within current user's org scope."""
-    ticket = ticket_service.get_ticket(db, ticket_id)
+    # Load ticket and messages; for portal we must only load PUBLIC messages at DB level
+    ticket = (
+        db.query(Ticket)
+        .options(
+            selectinload(Ticket.messages),
+            # apply loader criteria to ensure only PUBLIC messages are loaded
+            with_loader_criteria(TicketMessage, TicketMessage.type == "PUBLIC", include_aliases=True),
+        )
+        .filter(Ticket.id == ticket_id)
+        .first()
+    )
     if ticket is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
@@ -116,17 +126,51 @@ def get_ticket_by_id(
             status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
         )
 
-    # Enforce org scope using require_org_scope logic by calling the dependency factory
-    # If ticket.owner_org_unit_id is None, deny access
+    # Org scope enforcement (audit as ticket_view when denied to avoid leaking)
     target_org_id = ticket.owner_org_unit_id
     if target_org_id is None:
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="org_unit_access",
+                entity_id=target_org_id,
+                meta={
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
+                ip=(request.client.host if request and request.client else None),
+                user_agent=(request.headers.get("user-agent") if request is not None else None),
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope"
         )
 
-    # call the inner dependency to validate scope; pass `request` so audit metadata is available
-    dep = require_org_scope(target_org_id)
-    dep(current_user=current_user, db=db, request=request)
+    viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
+    scope_level = getattr(current_user, "scope_level", "SELF")
+    if not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, target_org_id):
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="org_unit_access",
+                entity_id=target_org_id,
+                meta={
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
+                ip=(request.client.host if request and request.client else None),
+                user_agent=(request.headers.get("user-agent") if request is not None else None),
+            )
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope"
+        )
 
     return {
         "id": ticket.id,
@@ -136,4 +180,18 @@ def get_ticket_by_id(
         "created_by": ticket.created_by,
         "priority": ticket.priority,
         "status": ticket.status,
+        "created_at": ticket.created_at.isoformat() if ticket.created_at is not None else None,
+        "updated_at": ticket.updated_at.isoformat() if ticket.updated_at is not None else None,
+        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at is not None else None,
+        "sensitivity_level": ticket.sensitivity_level,
+        "messages": [
+            {
+                "id": m.id,
+                "author_id": m.author_id,
+                "type": m.type,
+                "body": m.body,
+                "created_at": m.created_at.isoformat() if m.created_at is not None else None,
+            }
+            for m in sorted(ticket.messages, key=lambda x: x.created_at or 0)
+        ],
     }

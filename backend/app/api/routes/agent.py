@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core import agent_queues as agent_service
 from app.core.audit import write_audit
@@ -594,4 +594,132 @@ def post_ticket_message(
         "author_id": msg.author_id,
         "type": msg.type,
         "created_at": msg.created_at.isoformat() if msg.created_at is not None else None,
+    }
+
+
+
+@router.get("/agent/tickets/{ticket_id}")
+def get_agent_ticket(
+    ticket_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Agent gate: must be a team member or role name 'agent'
+    user_id = getattr(current_user, "id", None)
+    team_count = db.query(TeamMember).filter(TeamMember.user_id == user_id).count()
+    role_name = getattr(getattr(current_user, "role", None), "name", None)
+    if team_count == 0 and role_name != "agent":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Agent access required"
+        )
+
+    # Load ticket with messages (both PUBLIC and INTERNAL)
+    ticket: Ticket = (
+        db.query(Ticket)
+        .execution_options(populate_existing=True)
+        .options(selectinload(Ticket.messages))
+        .filter(Ticket.id == ticket_id)
+        .first()
+    )
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
+
+    # Confidential anti-leak
+    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(
+        current_user, "CONFIDENTIAL_VIEW"
+    ):
+        try:
+            ip = request.client.host if request.client else None
+        except Exception:
+            ip = None
+        user_agent = request.headers.get("user-agent")
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_confidential",
+                entity_id=ticket.id,
+                meta={"path": request.url.path, "method": request.method},
+                ip=ip,
+                user_agent=user_agent,
+            )
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
+
+    # Org scope check
+    viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
+    scope_level = getattr(current_user, "scope_level", "SELF")
+    if not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id):
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_view",
+                entity_id=ticket.id,
+                meta={"path": request.url.path, "method": request.method},
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope"
+        )
+
+    # Actor team membership
+    actor_team_ids = [
+        r[0]
+        for r in db.query(TM.team_id)
+        .filter(TM.user_id == getattr(current_user, "id", None))
+        .all()
+    ]
+    is_admin = has_permission(current_user, "admin")
+
+    if ticket.current_team_id not in actor_team_ids and not is_admin:
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_view",
+                entity_id=ticket.id,
+                meta={"path": request.url.path, "method": request.method},
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User not permitted to act on this team",
+        )
+
+    return {
+        "id": ticket.id,
+        "title": ticket.title,
+        "status": ticket.status,
+        "priority": ticket.priority,
+        "owner_org_unit_id": ticket.owner_org_unit_id,
+        "created_at": ticket.created_at.isoformat() if ticket.created_at is not None else None,
+        "updated_at": ticket.updated_at.isoformat() if ticket.updated_at is not None else None,
+        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at is not None else None,
+        "sensitivity_level": ticket.sensitivity_level,
+        "messages": [
+            {
+                "id": m.id,
+                "author_id": m.author_id,
+                "type": m.type,
+                "body": m.body,
+                "created_at": m.created_at.isoformat() if m.created_at is not None else None,
+            }
+            for m in sorted(ticket.messages, key=lambda x: x.created_at or 0)
+        ],
     }
