@@ -61,3 +61,19 @@ class Team(Base):
 
     # Relationships
     tickets = relationship("Ticket", back_populates="team")
+
+
+class OrgUnit(Base):
+    __tablename__ = "org_units"
+
+    id = Column(Integer, primary_key=True, index=True)
+    parent_id = Column(Integer, ForeignKey("org_units.id"), nullable=True, index=True)
+    type = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    path = Column(Text, nullable=False, default="")
+    depth = Column(Integer, nullable=False, default=0)
+
+    parent = relationship("OrgUnit", remote_side=[id], backref="children")
+
+    def __repr__(self) -> str:  # pragma: no cover - trivial
+        return f"<OrgUnit id={self.id} name={self.name} path={self.path}>"
