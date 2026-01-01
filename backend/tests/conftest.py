@@ -93,8 +93,8 @@ def sample_ticket(db, sample_user, sample_team):
     ticket = Ticket(
         title="Test Ticket",
         description="This is a test ticket",
-        status="open",
-        priority="high",
+        status="OPEN",
+        priority="HIGH",
         user_id=sample_user.id,
         team_id=sample_team.id
     )

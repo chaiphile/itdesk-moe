@@ -1,0 +1,11 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install the package with dev extras (pytest, httpx)
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e .[dev]
+
+COPY . .
+
+CMD ["pytest", "-q"]

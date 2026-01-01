@@ -19,6 +19,15 @@ services:
     depends_on:
       - postgres
 
+  app_test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    environment:
+      - DATABASE_URL=postgresql://postgres:a98319831a@postgres:5432/ticketing_db
+    depends_on:
+      - postgres
+
   redis:
     image: redis:alpine
     ports:

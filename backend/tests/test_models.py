@@ -113,8 +113,8 @@ class TestTicketModel:
         ticket = Ticket(
             title="Bug Report",
             description="Found a bug in the system",
-            status="open",
-            priority="high",
+            status="OPEN",
+            priority="HIGH",
             user_id=sample_user.id,
             team_id=sample_team.id
         )
@@ -124,8 +124,8 @@ class TestTicketModel:
         
         assert ticket.id is not None
         assert ticket.title == "Bug Report"
-        assert ticket.status == "open"
-        assert ticket.priority == "high"
+        assert ticket.status == "OPEN"
+        assert ticket.priority == "HIGH"
 
     def test_ticket_default_status(self, db, sample_user):
         """Test ticket default status."""
@@ -138,8 +138,8 @@ class TestTicketModel:
         db.commit()
         db.refresh(ticket)
         
-        assert ticket.status == "open"
-        assert ticket.priority == "medium"
+        assert ticket.status == "OPEN"
+        assert ticket.priority == "MED"
 
     def test_ticket_user_relationship(self, db, sample_ticket, sample_user):
         """Test ticket-user relationship."""
