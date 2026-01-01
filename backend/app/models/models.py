@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    BigInteger,
     String,
     Text,
     func,
@@ -50,6 +51,12 @@ class User(Base):
         "Ticket",
         back_populates="created_by_user",
         foreign_keys=lambda: [Ticket.created_by],
+        cascade="all, delete-orphan",
+    )
+    uploads = relationship(
+        "Attachment",
+        back_populates="uploader",
+        foreign_keys=lambda: [Attachment.uploaded_by],
         cascade="all, delete-orphan",
     )
 
@@ -154,6 +161,9 @@ class Ticket(Base):
     messages = relationship(
         "TicketMessage", back_populates="ticket", cascade="all, delete-orphan"
     )
+    attachments = relationship(
+        "Attachment", back_populates="ticket", cascade="all, delete-orphan"
+    )
 
     # Backwards-compatible attribute names used by older tests/code
     @property
@@ -249,3 +259,34 @@ class AuditLog(Base):
 Index("idx_audit_logs_created_at", AuditLog.created_at)
 Index("idx_audit_logs_actor_id", AuditLog.actor_id)
 Index("idx_audit_logs_entity", AuditLog.entity_type, AuditLog.entity_id)
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    object_key = Column(String, nullable=False, unique=True, index=True)
+    original_filename = Column(String, nullable=False)
+    mime = Column(String, nullable=True)
+    size = Column(BigInteger, nullable=False)
+    checksum = Column(String, nullable=True)
+    scanned_status = Column(String, nullable=False, server_default="PENDING")
+    scanned_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "scanned_status IN ('PENDING','CLEAN','INFECTED','FAILED')",
+            name="ck_attachments_scanned_status_vals",
+        ),
+    )
+
+    ticket = relationship("Ticket", back_populates="attachments")
+    uploader = relationship("User", back_populates="uploads")
+
+
+# Indexes for attachments
+Index("idx_attachments_ticket_id", Attachment.ticket_id)
+Index("idx_attachments_scanned_status", Attachment.scanned_status)

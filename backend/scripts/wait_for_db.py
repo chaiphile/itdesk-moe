@@ -13,6 +13,11 @@ def wait_for_db(timeout: int = 60) -> int:
         print("DATABASE_URL not set", file=sys.stderr)
         return 2
 
+    # Normalize URI for psycopg2: strip any SQLAlchemy-style driver hint like '+psycopg2'
+    if url.startswith("postgresql+"):
+        # e.g. 'postgresql+psycopg2://user:pass@host:port/db' -> 'postgresql://user:pass@host:port/db'
+        url = url.split("://", 1)[0].split("+", 1)[0] + "://" + url.split("://", 1)[1]
+
     for i in range(timeout):
         try:
             conn = psycopg2.connect(url)

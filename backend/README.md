@@ -71,3 +71,28 @@ docker compose run --rm backend-migrate
 Notes:
 - The containers read the database URL from `DATABASE_URL` environment variable.
 - The migration runner will prefer stamping existing schemas to prevent recreating existing tables; review `backend/scripts/run_migrations.py` if you need explicit control.
+
+## Attachments (new schema)
+
+A new `attachments` table has been added to support file attachments for tickets.
+
+- Model: `backend/app/models/models.py` (`Attachment` model)
+- Migration: `backend/alembic/versions/add_attachments_20260102.py`
+- Tests: `backend/tests/test_attachments_schema.py`
+
+How to apply the migration locally:
+
+PowerShell:
+```powershell
+$env:DATABASE_URL = 'postgresql://postgres:YOUR_PASS@HOST:5432/DB_NAME'
+cd d:\itdesk\backend
+alembic -c alembic.ini upgrade head
+```
+
+Run the test suite (includes attachments tests):
+```bash
+cd backend
+pytest
+```
+
+The `attachments` table includes a `scanned_status` CHECK constraint and indexes on `ticket_id`, `object_key` (unique), and `scanned_status`.
