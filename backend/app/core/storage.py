@@ -6,6 +6,8 @@ from app.core.config import get_settings
 class StorageClient(Protocol):
     def presign_put(self, *, bucket: str, key: str, content_type: str, expires_seconds: int) -> str:
         ...
+    def presign_get(self, *, bucket: str, key: str, expires_seconds: int) -> str:
+        ...
 
 
 def get_storage_client(settings=Depends(get_settings)) -> StorageClient:

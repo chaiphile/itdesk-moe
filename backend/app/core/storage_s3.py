@@ -18,3 +18,10 @@ class StorageS3Client:
             "put_object", Params=params, ExpiresIn=int(expires_seconds)
         )
         return url
+
+    def presign_get(self, *, bucket: str, key: str, expires_seconds: int) -> str:
+        params = {"Bucket": bucket, "Key": key}
+        url = self._client.generate_presigned_url(
+            "get_object", Params=params, ExpiresIn=int(expires_seconds)
+        )
+        return url

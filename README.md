@@ -88,3 +88,30 @@ curl -X POST "http://localhost:8000/tickets/1/attachments/presign" \
 ```
 
 This will return a JSON object containing `attachment_id`, `object_key`, `upload_url`, and `expires_in`. The `upload_url` is a presigned PUT URL pointing at the S3-compatible MinIO endpoint.
+
+End-to-end upload + download (PowerShell)
+ - A convenience PowerShell script is provided at `backend/scripts/run_e2e_presign.ps1` to perform a full presign PUT upload and presign GET download against a running Docker stack.
+ - From the repository root (Windows PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend/scripts/run_e2e_presign.ps1
+```
+
+What the script does:
+ - Creates a small sample file (`sample.pdf`) in the repo root
+ - Generates a JWT for `live_test_user` inside the `app` container
+ - Calls the presign upload endpoint to obtain a presigned PUT URL
+ - Uploads `sample.pdf` to MinIO using the presigned URL
+ - Marks the attachment as `CLEAN` in Postgres (so it can be downloaded)
+ - Calls the presign download endpoint and downloads the object to `downloaded.pdf`
+
+If you prefer to run steps manually, use the curl/psql snippets in the previous section to:
+ - create the test `org_unit`, `role`, `user`, and `ticket` in Postgres
+ - call the presign upload endpoint to get the `upload_url`
+ - PUT the file to the `upload_url`
+ - update `attachments.scanned_status` to `CLEAN`
+ - call the download endpoint to obtain the `download_url` and GET the object
+
+Notes
+ - The script assumes Docker Compose services are running (`postgres`, `minio`, `minio-mc`, and `app`).
+ - If you run the upload from the host you may need to adjust the presigned URLs (MinIO service host vs container host) depending on your Docker networking.

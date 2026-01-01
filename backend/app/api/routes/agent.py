@@ -17,6 +17,9 @@ from app.models.models import Ticket
 from app.models.models import User
 from app.models.models import User as UserModel
 from app.models.models import TicketMessage
+from app.models.models import Attachment
+from app.core.storage import get_storage_client, StorageClient
+from app.core.config import get_settings
 
 router = APIRouter()
 
@@ -263,6 +266,156 @@ def assign_ticket(
             ticket.updated_at.isoformat() if ticket.updated_at is not None else None
         ),
     }
+
+
+
+@router.get("/agent/tickets/{ticket_id}/attachments/{attachment_id}/download")
+def download_attachment_agent(
+    ticket_id: int,
+    attachment_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    storage: StorageClient = Depends(get_storage_client),
+    settings=Depends(get_settings),
+):
+    # Require agent-like privileges: membership in at least one team OR role name 'agent'
+    user_id = getattr(current_user, "id", None)
+    team_count = db.query(TeamMember).filter(TeamMember.user_id == user_id).count()
+    role_name = getattr(getattr(current_user, "role", None), "name", None)
+    if team_count == 0 and role_name != "agent":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Agent access required")
+
+    # Fetch ticket
+    ticket: Ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+
+    # Confidential tickets: audit and 404
+    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(current_user, "CONFIDENTIAL_VIEW"):
+        try:
+            ip = request.client.host if request.client else None
+        except Exception:
+            ip = None
+        user_agent = request.headers.get("user-agent")
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_attachment_download",
+                entity_id=ticket.id,
+                meta={"path": request.url.path, "method": request.method},
+                ip=ip,
+                user_agent=user_agent,
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+
+    # Org scope check
+    viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
+    scope_level = getattr(current_user, "scope_level", "SELF")
+    if not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id):
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_attachment_download",
+                entity_id=ticket.id,
+                meta={"path": request.url.path, "method": request.method},
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope")
+
+    # Actor team membership
+    actor_team_ids = [
+        r[0]
+        for r in db.query(TM.team_id)
+        .filter(TM.user_id == getattr(current_user, "id", None))
+        .all()
+    ]
+    is_admin = has_permission(current_user, "admin")
+
+    if ticket.current_team_id not in actor_team_ids and not is_admin:
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_attachment_download",
+                entity_id=ticket.id,
+                meta={"path": request.url.path, "method": request.method},
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not permitted to act on this team")
+
+    # Load attachment bound to ticket to avoid IDOR
+    attachment = db.query(Attachment).filter(Attachment.id == attachment_id, Attachment.ticket_id == ticket_id).first()
+    if attachment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
+
+    # Block infected
+    if attachment.scanned_status == "INFECTED":
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="ATTACHMENT_DOWNLOAD_BLOCKED",
+                entity_type="attachment",
+                entity_id=attachment.id,
+                meta={"path": request.url.path, "method": request.method},
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Attachment blocked")
+
+    if attachment.scanned_status == "FAILED":
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="ATTACHMENT_DOWNLOAD_BLOCKED",
+                entity_type="attachment",
+                entity_id=attachment.id,
+                meta={"reason": "scan_failed", "path": request.url.path, "method": request.method},
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan failed")
+
+    # Presign
+    expires = settings.ATTACHMENTS_PRESIGN_EXPIRES_SECONDS
+    bucket_name = (settings.MINIO_BUCKET or settings.S3_BUCKET) if hasattr(settings, "MINIO_BUCKET") else (settings.S3_BUCKET if hasattr(settings, "S3_BUCKET") else settings.S3_ACCESS_KEY)
+    download_url = storage.presign_get(bucket=bucket_name, key=attachment.object_key, expires_seconds=expires)
+
+    try:
+        write_audit(
+            db,
+            actor_id=getattr(current_user, "id", None),
+            action="TICKET_ATTACHMENT_DOWNLOAD_PRESIGNED",
+            entity_type="attachment",
+            entity_id=attachment.id,
+            diff={"ticket_id": ticket.id, "object_key": attachment.object_key, "scanned_status": attachment.scanned_status},
+            meta={"path": request.url.path, "method": request.method},
+            ip=(request.client.host if request.client else None),
+            user_agent=request.headers.get("user-agent"),
+        )
+    except Exception:
+        pass
+
+    return {"attachment_id": attachment.id, "download_url": download_url, "expires_in": expires}
 
 
 class StatusPayload(BaseModel):
