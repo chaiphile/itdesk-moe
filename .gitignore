@@ -1,3 +1,15 @@
+.env
+# local python virtual envs
+.venv/
+venv/
+# VS Code
+.vscode/
+# macOS
+.DS_Store
+
+# Backend env files
+backend/.env
+backend/.env.*
 # Virtual environments
 .venv/
 venv/

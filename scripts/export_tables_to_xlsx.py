@@ -9,7 +9,7 @@ def get_database_url():
     # Prefer env var, fallback to local docker-compose mapping
     return os.environ.get(
         "DATABASE_URL",
-        "postgresql://postgres:a98319831a@localhost:5432/ticketing_db",
+        "postgresql://postgres:change_me@localhost:5432/ticketing_db",
     )
 
 

@@ -2,11 +2,11 @@ services:
   postgres:
     image: postgres:13
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: a98319831a
-      POSTGRES_DB: ticketing_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-ticketing_db}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -15,7 +15,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:a98319831a@postgres:5432/ticketing_db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}}
     depends_on:
       - postgres
       - backend-migrate
@@ -25,14 +25,14 @@ services:
       context: ./backend
       dockerfile: Dockerfile.test
     environment:
-      - DATABASE_URL=postgresql://postgres:a98319831a@postgres:5432/ticketing_db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}}
     depends_on:
       - postgres
 
   backend-migrate:
     build: ./backend
     environment:
-      - DATABASE_URL=postgresql://postgres:a98319831a@postgres:5432/ticketing_db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}}
     depends_on:
       - postgres
     command: sh -c "python scripts/run_migrations.py"

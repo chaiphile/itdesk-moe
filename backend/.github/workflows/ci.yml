@@ -9,6 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
     services:
       postgres:
         image: postgres:15
@@ -40,7 +46,8 @@ jobs:
           pip install -e .[dev]
 
       - name: Configure DATABASE_URL
-        run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres" >> $GITHUB_ENV
+        run: |
+          echo "DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@${{ job.env.POSTGRES_HOST }}:${{ job.env.POSTGRES_PORT }}/$POSTGRES_DB" >> $GITHUB_ENV
 
       - name: Run migrations
         working-directory: backend

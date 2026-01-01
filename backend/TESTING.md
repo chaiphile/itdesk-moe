@@ -145,9 +145,9 @@ def test_with_data(sample_user, sample_ticket):
    ```
 
 3. **Check Connection String** in `.env`:
-   ```
-   DATABASE_URL=postgresql://proteges:a98319831a@localhost:5432/ticketing_db
-   ```
+    ```
+    DATABASE_URL=postgresql://proteges:change_me@localhost:5432/ticketing_db
+    ```
 
 4. **Verify Database Exists**:
    ```bash

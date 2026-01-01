@@ -335,7 +335,7 @@ ALGORITHM: str = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
 # Database
-DATABASE_URL: str = "postgresql://postgres:a98319831a@localhost:5432/ticketing_db"
+DATABASE_URL: str = "postgresql://postgres:change_me@localhost:5432/ticketing_db"
 ```
 
 **Note:** Change `SECRET_KEY` in production environments!

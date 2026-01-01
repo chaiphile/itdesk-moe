@@ -54,8 +54,8 @@
 
 ### 6. **app/core/config.py**
 - **Change**: Fixed DATABASE_URL to use 'postgres' user instead of 'proteges'
-- **Original**: `postgresql://proteges:a98319831a@localhost:5432/ticketing_db`
-- **Updated**: `postgresql://postgres:a98319831a@localhost:5432/ticketing_db`
+- **Original**: `postgresql://proteges:change_me@localhost:5432/ticketing_db`
+- **Updated**: `postgresql://postgres:change_me@localhost:5432/ticketing_db`
 
 ---
 
