@@ -20,6 +20,18 @@ class Settings(BaseSettings):
     # Placeholders for future use
     REDIS_URL: str | None = None
     CORS_ORIGINS: str = "http://localhost,http://127.0.0.1:3000"
+    # S3 / MinIO
+    S3_ENDPOINT: str = "http://minio:9000"
+    S3_ACCESS_KEY: str = "minio"
+    S3_SECRET_KEY: str = "change_me"
+    S3_REGION: str = "us-east-1"
+    S3_SECURE: bool = False
+    S3_BUCKET: str = "ticketing-attachments"
+    MINIO_BUCKET: str | None = None
+
+    # Attachments
+    ATTACHMENTS_MAX_SIZE_BYTES: int = 26214400
+    ATTACHMENTS_PRESIGN_EXPIRES_SECONDS: int = 900
 
     class Config:
         env_file = ".env"

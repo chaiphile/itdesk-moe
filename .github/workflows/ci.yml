@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install backend (editable) and dev deps
+        run: pip install -e backend[dev]
+
+      - name: Run tests
+        run: pytest -q backend
+
+  integration:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Configure env for compose
+        run: echo "Configured"
+        env:
+          POSTGRES_PASSWORD: change_me
+          MINIO_ROOT_USER: minio
+          MINIO_ROOT_PASSWORD: change_me
+          MINIO_BUCKET: ticketing-attachments
+
+      - name: Build and run integration tests (docker-compose)
+        run: |
+          docker compose up --build --abort-on-container-exit app_test
+          rc=$?
+          docker compose down -v || true
+          exit $rc
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'change_me' }}
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER || 'minio' }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD || 'change_me' }}
+          MINIO_BUCKET: ticketing-attachments

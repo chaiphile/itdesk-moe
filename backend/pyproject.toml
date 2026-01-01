@@ -7,6 +7,7 @@ dependencies = [
     "pydantic-settings",
     "python-dotenv",
     "sqlalchemy",
+    "boto3",
     "psycopg2-binary",
     "alembic",
     "python-jose[cryptography]",
@@ -23,3 +24,6 @@ dev = [
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app"]

@@ -6,8 +6,12 @@ Requires-Dist: uvicorn[standard]
 Requires-Dist: pydantic-settings
 Requires-Dist: python-dotenv
 Requires-Dist: sqlalchemy
+Requires-Dist: boto3
 Requires-Dist: psycopg2-binary
 Requires-Dist: alembic
+Requires-Dist: python-jose[cryptography]
+Requires-Dist: passlib[bcrypt]
+Requires-Dist: python-multipart
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: httpx; extra == "dev"
