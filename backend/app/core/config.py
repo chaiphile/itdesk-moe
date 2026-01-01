@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Database
-    DATABASE_URL: str = "postgresql://postgres:a98319831a@localhost:5432/ticketing_db"
+    # read from environment; do not hardcode credentials here
+    DATABASE_URL: str = ""
 
     # Authentication
     SECRET_KEY: str = "your-secret-key-here-change-in-production"

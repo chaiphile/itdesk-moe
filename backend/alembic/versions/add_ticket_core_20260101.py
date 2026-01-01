@@ -167,4 +167,3 @@ def downgrade() -> None:
                 pass
             op.drop_constraint('fk_teams_org_unit_id', 'teams', type_='foreignkey')
             op.drop_column('teams', 'org_unit_id')
-*** End Patch

@@ -18,6 +18,7 @@ services:
       - DATABASE_URL=postgresql://postgres:a98319831a@postgres:5432/ticketing_db
     depends_on:
       - postgres
+      - backend-migrate
 
   app_test:
     build:
@@ -27,6 +28,15 @@ services:
       - DATABASE_URL=postgresql://postgres:a98319831a@postgres:5432/ticketing_db
     depends_on:
       - postgres
+
+  backend-migrate:
+    build: ./backend
+    environment:
+      - DATABASE_URL=postgresql://postgres:a98319831a@postgres:5432/ticketing_db
+    depends_on:
+      - postgres
+    command: sh -c "python scripts/run_migrations.py"
+    restart: 'no'
 
   redis:
     image: redis:alpine
