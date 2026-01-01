@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
@@ -51,7 +51,7 @@ def list_my_tickets(db: Session = Depends(get_db), current_user: User = Depends(
 
 
 @router.get("/tickets/{ticket_id}")
-def get_ticket_by_id(ticket_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_ticket_by_id(ticket_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), request: Request = None):
     """Return ticket if within current user's org scope."""
     ticket = ticket_service.get_ticket(db, ticket_id)
     if ticket is None:
@@ -63,9 +63,9 @@ def get_ticket_by_id(ticket_id: int, db: Session = Depends(get_db), current_user
     if target_org_id is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope")
 
-    # call the inner dependency to validate scope
+    # call the inner dependency to validate scope; pass `request` so audit metadata is available
     dep = require_org_scope(target_org_id)
-    dep(current_user=current_user, db=db)
+    dep(current_user=current_user, db=db, request=request)
 
     return {
         "id": ticket.id,

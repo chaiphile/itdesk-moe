@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.models import Ticket
 from app.core.org_scope import get_scope_root_path
+from app.core.audit import write_audit
 
 
 def create_ticket(db: Session, title: str, description: str, created_by_user, priority: Optional[str] = None) -> Ticket:
@@ -20,6 +21,25 @@ def create_ticket(db: Session, title: str, description: str, created_by_user, pr
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
+
+    # Write append-only audit record for ticket creation
+    try:
+        write_audit(
+            db,
+            actor_id=getattr(created_by_user, "id", None),
+            action="TICKET_CREATED",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            diff={
+                "title": ticket.title,
+                "owner_org_unit_id": ticket.owner_org_unit_id,
+                "priority": ticket.priority,
+                "status": ticket.status,
+            },
+        )
+    except Exception:
+        # Audit failure should not prevent normal flow; re-raise if you prefer stricter behavior
+        pass
     return ticket
 
 

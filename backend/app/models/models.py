@@ -16,6 +16,7 @@ from sqlalchemy import (
     CheckConstraint,
     func,
 )
+from sqlalchemy import JSON
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
@@ -193,3 +194,24 @@ Index("idx_tickets_owner_org_unit_id", Ticket.owner_org_unit_id)
 Index("idx_tickets_status", Ticket.status)
 Index("idx_tickets_current_team_id", Ticket.current_team_id)
 Index("idx_tickets_created_at", Ticket.created_at)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    action = Column(String, nullable=False)
+    entity_type = Column(String, nullable=False)
+    entity_id = Column(Integer, nullable=True)
+    diff_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    ip = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    meta_json = Column(JSON, nullable=True)
+
+
+# Indexes for audit logs
+Index("idx_audit_logs_created_at", AuditLog.created_at)
+Index("idx_audit_logs_actor_id", AuditLog.actor_id)
+Index("idx_audit_logs_entity", AuditLog.entity_type, AuditLog.entity_id)
