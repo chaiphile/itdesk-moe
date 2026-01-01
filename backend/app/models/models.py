@@ -23,11 +23,15 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    # Organization unit association and scope
+    org_unit_id = Column(Integer, ForeignKey("org_units.id"), nullable=True, index=True)
+    scope_level = Column(String, nullable=False, default="SELF")
     role_id = Column(Integer, ForeignKey("roles.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     role = relationship("Role", back_populates="users")
+    org_unit = relationship("OrgUnit")
     tickets = relationship("Ticket", back_populates="user")
 
 
