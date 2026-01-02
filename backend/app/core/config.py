@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: str = "change_me"
     S3_REGION: str = "us-east-1"
     S3_SECURE: bool = False
+    # Public base URL used for returned presigned URLs (host/browser reachable)
+    # Example: http://localhost:9000 or https://files.myorg.edu
+    S3_PUBLIC_BASE_URL: str | None = None
     S3_BUCKET: str = "ticketing-attachments"
     MINIO_BUCKET: str | None = None
 

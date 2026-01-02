@@ -369,9 +369,9 @@ def download_attachment_agent(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
-                entity_type="attachment",
+                entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"path": request.url.path, "method": request.method},
+                meta={"reason": "INFECTED", "path": request.url.path, "method": request.method},
                 ip=(request.client.host if request.client else None),
                 user_agent=request.headers.get("user-agent"),
             )
@@ -385,15 +385,32 @@ def download_attachment_agent(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
-                entity_type="attachment",
+                entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "scan_failed", "path": request.url.path, "method": request.method},
+                meta={"reason": "FAILED", "path": request.url.path, "method": request.method},
                 ip=(request.client.host if request.client else None),
                 user_agent=request.headers.get("user-agent"),
             )
         except Exception:
             pass
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan failed")
+
+    # Pending scans should block downloads until scan completes
+    if attachment.scanned_status == "PENDING":
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="ATTACHMENT_DOWNLOAD_BLOCKED",
+                entity_type="ticket_attachment_download",
+                entity_id=attachment.id,
+                meta={"reason": "PENDING", "path": request.url.path, "method": request.method},
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan pending")
 
     # Presign
     expires = settings.ATTACHMENTS_PRESIGN_EXPIRES_SECONDS

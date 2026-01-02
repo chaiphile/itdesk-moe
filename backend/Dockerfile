@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .
+# Ensure boto3 is available in the runtime image for the scanner/service
+RUN pip install --no-cache-dir boto3
 
 COPY . .
 

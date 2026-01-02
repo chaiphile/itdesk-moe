@@ -391,9 +391,9 @@ def download_attachment_portal(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
-                entity_type="attachment",
+                entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={"reason": "INFECTED", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
                 ip=ip,
                 user_agent=user_agent,
             )
@@ -408,15 +408,32 @@ def download_attachment_portal(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
-                entity_type="attachment",
+                entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "scan_failed", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={"reason": "FAILED", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
                 ip=(request.client.host if request and request.client else None),
                 user_agent=(request.headers.get("user-agent") if request is not None else None),
             )
         except Exception:
             pass
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan failed")
+
+    # Pending scans: do not allow download until scan completes
+    if attachment.scanned_status == "PENDING":
+        try:
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="ATTACHMENT_DOWNLOAD_BLOCKED",
+                entity_type="ticket_attachment_download",
+                entity_id=attachment.id,
+                meta={"reason": "PENDING", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                ip=(request.client.host if request and request.client else None),
+                user_agent=(request.headers.get("user-agent") if request is not None else None),
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan pending")
 
     # Confidential check: hide as 404 and audit
     if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(current_user, "CONFIDENTIAL_VIEW"):

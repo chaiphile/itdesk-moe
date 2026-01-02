@@ -6,7 +6,11 @@ from app.models.models import Attachment, AuditLog, Ticket, User
 
 class FakeStorageClient:
     def presign_put(self, *, bucket, key, content_type, expires_seconds):
-        return "http://example/upload"
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        public = settings.S3_PUBLIC_BASE_URL or "http://localhost:9000"
+        return f"{public}/upload?X-Amz-Signature=FAKE"
 
 
 def _auth_headers_for_user(username: str):
@@ -38,7 +42,10 @@ def test_portal_user_can_presign(db, client, sample_user, sample_role):
     assert resp.status_code == 200
     data = resp.json()
     assert "upload_url" in data
-    assert data["upload_url"].startswith("http")
+    from app.core.config import get_settings
+    settings = get_settings()
+    public = settings.S3_PUBLIC_BASE_URL or "http://localhost:9000"
+    assert data["upload_url"].startswith(public)
 
     # DB row exists
     att = db.query(Attachment).filter(Attachment.id == data["attachment_id"]).first()

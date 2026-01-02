@@ -17,11 +17,11 @@ def get_storage_client(settings=Depends(get_settings)) -> StorageClient:
     """
     # Lazy import to avoid requiring boto3 in contexts that override dependency
     from app.core.storage_s3 import StorageS3Client
-
     return StorageS3Client(
         endpoint_url=settings.S3_ENDPOINT,
         access_key=settings.S3_ACCESS_KEY,
         secret_key=settings.S3_SECRET_KEY,
         region=settings.S3_REGION,
         secure=settings.S3_SECURE,
+        public_base_url=settings.S3_PUBLIC_BASE_URL,
     )
