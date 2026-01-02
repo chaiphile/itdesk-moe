@@ -1,3 +1,139 @@
+itdesk — Quick start and developer notes
+
+## Quick start
+
+1. Copy the example env file:
+   - macOS / Linux: `cp .env.example .env`
+   - Windows PowerShell: `copy .env.example .env`
+2. Edit `.env` and set a secure `POSTGRES_PASSWORD` and `MINIO` credentials.
+3. Start the stack (build first run):
+
+```bash
+docker compose up -d --build
+```
+
+4. Run migrations (containerized):
+
+```bash
+docker compose run --rm backend-migrate python scripts/run_migrations.py
+```
+
+5. Run the test suite (same behavior as CI):
+
+```bash
+docker compose run --rm app_test pytest -q
+```
+
+6. To recreate a fresh DB (warning: destroys local volumes):
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+## Useful validation & troubleshooting
+
+- Ensure no plaintext secrets remain (example):
+
+```bash
+grep -R "a98319831a" . || echo "no matches"
+# PowerShell
+Select-String -Path * -Pattern 'a98319831a' -SimpleMatch -List || Write-Output "no matches"
+```
+
+- Verify migrations applied (example):
+
+```bash
+docker compose run --rm -e DATABASE_URL=postgresql://postgres:<your_password>@postgres:5432/ticketing_db backend-migrate python scripts/run_migrations.py
+```
+
+## MinIO & presign flow (upload + download)
+
+1. Start MinIO services only (if you don't want the full stack):
+
+```bash
+docker compose up -d minio minio-mc
+```
+
+2. Bring up the app and apply migrations:
+
+```bash
+docker compose up -d --build
+docker compose run --rm backend-migrate python scripts/run_migrations.py
+```
+
+3. Generate a test JWT (inside `app` container or host Python env):
+
+```bash
+python -c "from app.core.auth import create_access_token; print(create_access_token({'sub':'<username>'}))"
+```
+
+4. Create test data using `psql`:
+
+```bash
+docker compose exec -T postgres psql -U postgres -d ticketing_db -c "INSERT INTO org_units (parent_id,type,name,path,depth) VALUES (NULL,'school','LocalSchool','/00000001',1) ON CONFLICT (name) DO NOTHING;"
+docker compose exec -T postgres psql -U postgres -d ticketing_db -c "INSERT INTO users (username,name,email,role_id) SELECT 'live_test_user','Live Tester','live@local',(SELECT id FROM roles WHERE name='tester') WHERE NOT EXISTS (SELECT 1 FROM users WHERE username='live_test_user');"
+docker compose exec -T postgres psql -U postgres -d ticketing_db -c "INSERT INTO tickets (title,description,status,priority,user_id,owner_org_unit_id) SELECT 'Live T','desc','OPEN','MED',(SELECT id FROM users WHERE username='live_test_user'),(SELECT id FROM org_units WHERE name='LocalSchool') WHERE NOT EXISTS (SELECT 1 FROM tickets WHERE title='Live T');"
+```
+
+5. Call the presign upload endpoint (replace `YOUR_TOKEN` and ticket id):
+
+```bash
+curl -X POST "http://localhost:8000/tickets/1/attachments/presign" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"original_filename":"test.pdf","mime":"application/pdf","size":12345,"checksum":null}'
+```
+
+This returns JSON with `attachment_id`, `object_key`, `upload_url`, and `expires_in`. The `upload_url` is a presigned PUT URL for MinIO.
+
+### End-to-end presign helper
+
+A convenience PowerShell script is provided at `backend/scripts/run_e2e_presign.ps1` to perform a full presign PUT upload and presign GET download against a running Docker stack:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend/scripts/run_e2e_presign.ps1
+```
+
+Notes:
+- The script assumes the Compose services `postgres`, `minio`, `minio-mc`, and `app` are running.
+- If presigned URLs include the internal hostname `minio`, either run uploads/downloads from inside the compose network (container) or rewrite the host to `127.0.0.1` when running from the host.
+
+## Scanner & attachment flow
+
+The `attachment-scanner` service polls the DB for attachments with `scanned_status = 'PENDING'`, downloads objects from MinIO, scans with ClamAV, and updates `scanned_status` to `CLEAN`, `INFECTED`, or `FAILED`.
+
+- ClamAV exposes TCP port `3310` and the scanner uses `CLAMAV_HOST:CLAMAV_PORT` (defaults `clamav:3310`).
+- Watch scanner logs with: `docker compose logs -f attachment-scanner`.
+
+## Running tests
+
+- Run the unit/integration test suite from host (one-off container):
+
+```bash
+docker compose run --rm app_test pytest -q
+```
+
+- Or run only the app tests with Docker Compose up (useful for CI-like behavior):
+
+```bash
+docker compose up --build --abort-on-container-exit app_test
+```
+
+## Troubleshooting
+
+- If `attachment-scanner` fails to import the `app` package, ensure the service has `PYTHONPATH=/app` in `docker-compose.yml`.
+- If you need to inspect the DB or run project scripts inside the app image, use:
+
+```bash
+docker compose run --rm app bash
+```
+
+---
+
+If you want, I can also:
+- Update `backend/README.md` with a short developer Quick Start.
+- Run a spellcheck or markdown linter across all `.md` files and propose fixes.
 Quick start
 
 - Copy the example env file:

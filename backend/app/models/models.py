@@ -7,6 +7,7 @@ column names where the DB already used legacy names (for example 'user_id').
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -303,3 +304,26 @@ class Attachment(Base):
 # Indexes for attachments
 Index("idx_attachments_ticket_id", Attachment.ticket_id)
 Index("idx_attachments_scanned_status", Attachment.scanned_status)
+
+
+class AiSuggestion(Base):
+    __tablename__ = "ai_suggestions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False, index=True)
+    kind = Column(String, nullable=False)
+    payload_json = Column(JSON, nullable=False)
+    model_version = Column(String, nullable=False)
+    accepted = Column(Boolean, nullable=True)
+    feedback_note = Column(Text, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    decided_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+
+
+# Indexes for ai suggestions
+Index("idx_ai_suggestions_ticket_id", AiSuggestion.ticket_id)
+Index("idx_ai_suggestions_kind", AiSuggestion.kind)
+Index("idx_ai_suggestions_created_at", AiSuggestion.created_at)
+Index("idx_ai_suggestions_accepted", AiSuggestion.accepted)
