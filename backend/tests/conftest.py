@@ -72,6 +72,11 @@ def sample_org_unit(db):
     db.add(org_unit)
     db.commit()
     db.refresh(org_unit)
+    # Ensure materialized path is set for scope checks
+    org_unit.path = f"/{org_unit.id:08d}/"
+    db.add(org_unit)
+    db.commit()
+    db.refresh(org_unit)
     return org_unit
 
 

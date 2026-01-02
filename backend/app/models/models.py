@@ -232,6 +232,18 @@ class OrgUnit(Base):
         return f"<OrgUnit id={self.id} name={self.name} path={self.path}>"
 
 
+class KbDocument(Base):
+    __tablename__ = "kb_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False, index=True)
+    section = Column(String, nullable=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+
+
 # Additional indexes for tickets
 Index("idx_tickets_owner_org_unit_id", Ticket.owner_org_unit_id)
 Index("idx_tickets_status", Ticket.status)
