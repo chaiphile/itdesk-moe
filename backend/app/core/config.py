@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     ATTACHMENTS_MAX_SIZE_BYTES: int = 26214400
     ATTACHMENTS_PRESIGN_EXPIRES_SECONDS: int = 900
 
+    # Attachment retention
+    ATTACHMENT_RETENTION_DAYS: int = 30
+    RETENTION_CLEANUP_INTERVAL: int = 86400  # 24 hours in seconds
+
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.session import Base, get_db
 from app.main import app
-from app.models.models import Role, Team, Ticket, User
+from app.models.models import Role, Team, Ticket, User, OrgUnit
 
 # Use SQLite in-memory database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -66,9 +66,25 @@ def sample_role(db):
 
 
 @pytest.fixture
-def sample_user(db, sample_role):
+def sample_org_unit(db):
+    """Create a sample org unit for testing."""
+    org_unit = OrgUnit(name="Test Org", type="department", parent_id=None)
+    db.add(org_unit)
+    db.commit()
+    db.refresh(org_unit)
+    return org_unit
+
+
+@pytest.fixture
+def sample_user(db, sample_role, sample_org_unit):
     """Create a sample user for testing."""
-    user = User(username="testuser", email="test@example.com", role_id=sample_role.id)
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        role_id=sample_role.id,
+        org_unit_id=sample_org_unit.id,
+        scope_level="SELF",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -93,8 +109,9 @@ def sample_ticket(db, sample_user, sample_team):
         description="This is a test ticket",
         status="OPEN",
         priority="HIGH",
-        user_id=sample_user.id,
-        team_id=sample_team.id,
+        created_by=sample_user.id,
+        current_team_id=sample_team.id,
+        owner_org_unit_id=sample_user.org_unit_id,
     )
     db.add(ticket)
     db.commit()

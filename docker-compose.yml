@@ -104,6 +104,27 @@ services:
       - clamav
       - postgres
 
+  retention-cleanup:
+    build: ./backend
+    command: >
+      sh -c "while true; do
+        python scripts/retention_cleanup.py;
+        sleep ${RETENTION_CLEANUP_INTERVAL:-86400};
+      done"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
+      - S3_ENDPOINT=${S3_ENDPOINT:-http://minio:9000}
+      - PYTHONPATH=/app
+      - RETENTION_CLEANUP_INTERVAL=${RETENTION_CLEANUP_INTERVAL:-86400}
+    depends_on:
+      - postgres
+      - minio
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+    driver: local
   minio-data:
+    driver: local

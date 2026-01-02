@@ -5,12 +5,15 @@ from pydantic import BaseModel, Field, validator
 from uuid import uuid4
 import re
 import os
+from datetime import datetime
+import json
 from sqlalchemy.orm import Session, selectinload, with_loader_criteria
 
 from app.core import tickets as ticket_service
 from app.core.audit import write_audit
 from app.core.auth import get_current_user, has_permission
 from app.core.org_scope import is_orgunit_in_scope
+from app.core.redaction import create_redaction_engine
 from app.db.session import get_db
 from app.models.models import Ticket, User, TicketMessage
 from app.models.models import Attachment, AuditLog
@@ -498,3 +501,171 @@ def download_attachment_portal(
         pass
 
     return {"attachment_id": attachment.id, "download_url": download_url, "expires_in": expires}
+
+
+# Export endpoint
+class ExportTicketResponse(BaseModel):
+    ticket_id: int
+    title: str
+    description: str
+    priority: str
+    status: str
+    sensitivity_level: str
+    created_at: datetime
+    closed_at: datetime | None
+    messages: List[dict]
+    attachments: List[dict]
+    exported_at: datetime
+
+
+@router.post("/tickets/{ticket_id}/export", response_model=ExportTicketResponse)
+def export_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    request: Request = None,
+):
+    """Export ticket data with redaction and permission checks.
+
+    Exports a complete ticket including messages and attachments,
+    with automatic redaction based on sensitivity and user permissions.
+
+    Rules:
+    - User must have visibility into the ticket (org scope, team membership)
+    - CONFIDENTIAL tickets require CONFIDENTIAL_VIEW permission
+    - RESTRICTED attachments are excluded unless user has EXPORT_CONFIDENTIAL permission
+    - Sensitive metadata is automatically redacted based on sensitivity level
+    """
+    # Load ticket
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+
+    # Org scope check
+    viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
+    scope_level = getattr(current_user, "scope_level", "SELF")
+    if not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id):
+        try:
+            ip = request.client.host if request and request.client else None
+            user_agent = request.headers.get("user-agent") if request is not None else None
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_export",
+                entity_id=ticket.id,
+                meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                ip=ip,
+                user_agent=user_agent,
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope")
+
+    # Confidential check
+    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(current_user, "CONFIDENTIAL_VIEW"):
+        try:
+            ip = request.client.host if request and request.client else None
+            user_agent = request.headers.get("user-agent") if request is not None else None
+            write_audit(
+                db,
+                actor_id=getattr(current_user, "id", None),
+                action="PERMISSION_DENIED",
+                entity_type="ticket_export",
+                entity_id=ticket.id,
+                meta={"reason": "CONFIDENTIAL", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                ip=ip,
+                user_agent=user_agent,
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+
+    # Check for export permission (allows RESTRICTED attachment export)
+    has_export_permission = has_permission(current_user, "EXPORT_CONFIDENTIAL")
+
+    # Build ticket data
+    messages = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).all()
+    attachments = db.query(Attachment).filter(
+        Attachment.ticket_id == ticket_id,
+        Attachment.status == "ACTIVE"  # Only export non-deleted attachments
+    ).all()
+
+    messages_data = [
+        {
+            "id": m.id,
+            "user_id": m.user_id,
+            "content": m.content,
+            "created_at": m.created_at,
+        }
+        for m in messages
+    ]
+
+    attachments_data = [
+        {
+            "id": a.id,
+            "original_filename": a.original_filename,
+            "mime": a.mime,
+            "size": a.size,
+            "sensitivity_level": a.sensitivity_level,
+            "scanned_status": a.scanned_status,
+            "created_at": a.created_at,
+        }
+        for a in attachments
+    ]
+
+    # Apply redaction
+    redaction_engine = create_redaction_engine()
+    ticket_export_data = {
+        "ticket_id": ticket.id,
+        "title": ticket.title,
+        "description": ticket.description,
+        "priority": ticket.priority,
+        "status": ticket.status,
+        "sensitivity_level": ticket.sensitivity_level,
+        "created_at": ticket.created_at,
+        "closed_at": ticket.closed_at,
+        "messages": messages_data,
+        "attachments": attachments_data,
+    }
+
+    redacted_data = redaction_engine.redact_ticket_export(
+        ticket_export_data,
+        has_export_permission=has_export_permission
+    )
+
+    # Write audit log
+    try:
+        ip = request.client.host if request and request.client else None
+        user_agent = request.headers.get("user-agent") if request is not None else None
+        write_audit(
+            db,
+            actor_id=getattr(current_user, "id", None),
+            action="TICKET_EXPORTED",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            diff={
+                "sensitivity_level": ticket.sensitivity_level,
+                "attachment_count": len(attachments),
+                "message_count": len(messages),
+            },
+            meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+            ip=ip,
+            user_agent=user_agent,
+        )
+    except Exception:
+        pass
+
+    return ExportTicketResponse(
+        ticket_id=redacted_data["ticket_id"],
+        title=redacted_data["title"],
+        description=redacted_data["description"],
+        priority=redacted_data["priority"],
+        status=redacted_data["status"],
+        sensitivity_level=redacted_data["sensitivity_level"],
+        created_at=redacted_data["created_at"],
+        closed_at=redacted_data["closed_at"],
+        messages=redacted_data["messages"],
+        attachments=redacted_data["attachments"],
+        exported_at=datetime.utcnow(),
+    )

@@ -274,12 +274,25 @@ class Attachment(Base):
     checksum = Column(String, nullable=True)
     scanned_status = Column(String, nullable=False, server_default="PENDING")
     scanned_at = Column(DateTime(timezone=True), nullable=True)
+    sensitivity_level = Column(String, nullable=False, server_default="REGULAR")
+    retention_days = Column(Integer, nullable=True)
+    status = Column(String, nullable=False, server_default="ACTIVE")
+    redacted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     __table_args__ = (
         CheckConstraint(
             "scanned_status IN ('PENDING','CLEAN','INFECTED','FAILED')",
             name="ck_attachments_scanned_status_vals",
+        ),
+        CheckConstraint(
+            "sensitivity_level IN ('REGULAR','CONFIDENTIAL','RESTRICTED')",
+            name="ck_attachments_sensitivity_vals",
+        ),
+        CheckConstraint(
+            "status IN ('ACTIVE','DELETED')",
+            name="ck_attachments_status_vals",
         ),
     )
 
