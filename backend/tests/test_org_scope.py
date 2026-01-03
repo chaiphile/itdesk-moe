@@ -1,5 +1,5 @@
 from app.core.dependencies import require_org_scope
-from app.core.org_scope import SCOPE_LEVELS, get_scope_root_path, is_orgunit_in_scope
+from app.core.org_scope import get_scope_root_path, is_orgunit_in_scope
 from app.core.org_unit import create_org_unit
 from app.models.models import User
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Script to seed roles and users (RBAC) together."""
 
-from sqlalchemy.orm import sessionmaker
+from app.core.auth import get_password_hash
 from app.db.session import engine
 from app.models.models import Role, User
-from app.core.auth import get_password_hash
+from sqlalchemy.orm import sessionmaker
 
 # Create session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -19,7 +19,10 @@ def seed_roles(db):
             return False
 
         roles_data = [
-            {"name": "admin", "permissions": "read,write,delete,admin,CONFIDENTIAL_VIEW"},
+            {
+                "name": "admin",
+                "permissions": "read,write,delete,admin,CONFIDENTIAL_VIEW",
+            },
             {"name": "user", "permissions": "read,write"},
             {"name": "viewer", "permissions": "read"},
         ]
@@ -60,25 +63,25 @@ def seed_users(db):
                 "username": "admin",
                 "email": "admin@example.com",
                 "password": "admin123",
-                "role_id": admin_role.id
+                "role_id": admin_role.id,
             },
             {
                 "username": "user1",
                 "email": "user1@example.com",
                 "password": "user123",
-                "role_id": user_role.id
+                "role_id": user_role.id,
             },
             {
                 "username": "user2",
                 "email": "user2@example.com",
                 "password": "user456",
-                "role_id": user_role.id
+                "role_id": user_role.id,
             },
             {
                 "username": "viewer",
                 "email": "viewer@example.com",
                 "password": "viewer789",
-                "role_id": viewer_role.id
+                "role_id": viewer_role.id,
             },
         ]
 
@@ -130,6 +133,7 @@ def seed_rbac():
     except Exception as e:
         print(f"Error during RBAC seeding: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         db.close()

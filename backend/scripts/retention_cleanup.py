@@ -9,26 +9,23 @@ This script:
 
 Run periodically via cron or scheduling system.
 """
-import sys
 import logging
+import sys
 from datetime import datetime, timedelta
-from typing import List, Optional
 
 import boto3
-from sqlalchemy.orm import Session
 
 # Add app to path for imports
-sys.path.insert(0, '/app')
+sys.path.insert(0, "/app")
 
-from app.core.config import get_settings
 from app.core.audit import write_audit
+from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.models.models import Attachment, AuditLog
+from app.models.models import Attachment
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 
@@ -70,11 +67,15 @@ class RetentionCleanupJob:
         try:
             # Find all expired attachments (ACTIVE status with expires_at in the past)
             now = datetime.utcnow()
-            expired = session.query(Attachment).filter(
-                Attachment.status == "ACTIVE",
-                Attachment.expires_at.isnot(None),
-                Attachment.expires_at <= now,
-            ).all()
+            expired = (
+                session.query(Attachment)
+                .filter(
+                    Attachment.status == "ACTIVE",
+                    Attachment.expires_at.isnot(None),
+                    Attachment.expires_at <= now,
+                )
+                .all()
+            )
 
             stats["expired_found"] = len(expired)
             LOG.info(f"Found {len(expired)} expired attachments")
@@ -92,8 +93,7 @@ class RetentionCleanupJob:
                         bucket = self.settings.MINIO_BUCKET or self.settings.S3_BUCKET
                         try:
                             self.s3_client.delete_object(
-                                Bucket=bucket,
-                                Key=attachment.object_key
+                                Bucket=bucket, Key=attachment.object_key
                             )
                             stats["removed_from_storage"] += 1
                             LOG.info(
@@ -124,11 +124,17 @@ class RetentionCleanupJob:
                                 diff={
                                     "object_key": attachment.object_key,
                                     "ticket_id": attachment.ticket_id,
-                                    "expires_at": attachment.expires_at.isoformat() if attachment.expires_at else None,
+                                    "expires_at": (
+                                        attachment.expires_at.isoformat()
+                                        if attachment.expires_at
+                                        else None
+                                    ),
                                 },
                             )
                         except Exception as e:
-                            LOG.error(f"Failed to write audit log for attachment {attachment.id}: {e}")
+                            LOG.error(
+                                f"Failed to write audit log for attachment {attachment.id}: {e}"
+                            )
 
                     else:
                         # Dry run: just log what would happen
@@ -174,10 +180,13 @@ class RetentionCleanupJob:
         """
         session = SessionLocal()
         try:
-            attachments = session.query(Attachment).filter(
-                Attachment.ticket_id == ticket_id,
-                Attachment.status == "ACTIVE"
-            ).all()
+            attachments = (
+                session.query(Attachment)
+                .filter(
+                    Attachment.ticket_id == ticket_id, Attachment.status == "ACTIVE"
+                )
+                .all()
+            )
 
             if not attachments:
                 LOG.info(f"No active attachments found for ticket {ticket_id}")
@@ -215,7 +224,7 @@ def main():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run in dry-run mode (no actual deletions)"
+        help="Run in dry-run mode (no actual deletions)",
     )
 
     args = parser.parse_args()

@@ -1,10 +1,9 @@
-from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
-
 from app.core.audit import write_audit
 from app.core.auth import get_current_user
 from app.core.org_scope import is_orgunit_in_scope
 from app.db.session import get_db
+from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
 
 
 def require_org_scope(target_org_unit_id: int):

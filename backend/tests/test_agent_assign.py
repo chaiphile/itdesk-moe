@@ -13,7 +13,7 @@ def test_agent_assign_scenarios(client, db):
     prov1 = create_org_unit(db, name="Prov1", type="province")
     reg1 = create_org_unit(db, name="Reg1", type="region", parent_id=prov1.id)
     sch1 = create_org_unit(db, name="Sch1", type="school", parent_id=reg1.id)
-    unit1 = create_org_unit(db, name="Unit1", type="unit", parent_id=sch1.id)
+    _unit1 = create_org_unit(db, name="Unit1", type="unit", parent_id=sch1.id)
 
     prov2 = create_org_unit(db, name="Prov2", type="province")
     reg2 = create_org_unit(db, name="Reg2", type="region", parent_id=prov2.id)

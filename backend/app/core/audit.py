@@ -1,8 +1,7 @@
 from typing import Any, Dict, Optional
 
-from sqlalchemy.orm import Session
-
 from app.models.models import AuditLog
+from sqlalchemy.orm import Session
 
 
 def write_audit(

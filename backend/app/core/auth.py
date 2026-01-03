@@ -1,15 +1,14 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
+from app.core.config import get_settings
+from app.db.session import get_db
+from app.models.models import User
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
-from app.core.config import get_settings
-from app.db.session import get_db
-from app.models.models import User
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -1,6 +1,6 @@
 from app.core.auth import create_access_token
 from app.core.org_unit import create_org_unit
-from app.models.models import Ticket, User, Team, TeamMember, TicketMessage, Role
+from app.models.models import Role, Team, TeamMember, Ticket, TicketMessage, User
 
 
 def _auth_headers_for_user(username: str):
@@ -21,14 +21,18 @@ def test_ticket_history_portal_and_agent(client, db):
     db.refresh(team)
 
     # Users
-    portal_user = User(username="portal", email="p@e", role_id=None, org_unit_id=school.id)
+    portal_user = User(
+        username="portal", email="p@e", role_id=None, org_unit_id=school.id
+    )
     agent_a = User(username="agent_a", email="a@e", role_id=None, org_unit_id=school.id)
     # privileged agent role
     priv_role = Role(name="agent_priv", permissions="CONFIDENTIAL_VIEW")
     db.add(priv_role)
     db.commit()
     db.refresh(priv_role)
-    agent_priv = User(username="agent_priv", email="ap@e", role_id=priv_role.id, org_unit_id=school.id)
+    agent_priv = User(
+        username="agent_priv", email="ap@e", role_id=priv_role.id, org_unit_id=school.id
+    )
 
     db.add_all([portal_user, agent_a, agent_priv])
     db.commit()
@@ -43,19 +47,40 @@ def test_ticket_history_portal_and_agent(client, db):
     db.commit()
 
     # Tickets: t1 regular, t2 confidential
-    t1 = Ticket(title="T1", description="d", created_by=portal_user.id, owner_org_unit_id=school.id, current_team_id=team.id)
-    t2 = Ticket(title="T2", description="d2", created_by=portal_user.id, owner_org_unit_id=school.id, current_team_id=team.id, sensitivity_level="CONFIDENTIAL")
+    t1 = Ticket(
+        title="T1",
+        description="d",
+        created_by=portal_user.id,
+        owner_org_unit_id=school.id,
+        current_team_id=team.id,
+    )
+    t2 = Ticket(
+        title="T2",
+        description="d2",
+        created_by=portal_user.id,
+        owner_org_unit_id=school.id,
+        current_team_id=team.id,
+        sensitivity_level="CONFIDENTIAL",
+    )
     db.add_all([t1, t2])
     db.commit()
     db.refresh(t1)
     db.refresh(t2)
 
     # Messages for t1: one PUBLIC, one INTERNAL
-    m1 = TicketMessage(ticket_id=t1.id, author_id=portal_user.id, type="PUBLIC", body="public1")
-    m2 = TicketMessage(ticket_id=t1.id, author_id=agent_a.id, type="INTERNAL", body="internal1")
+    m1 = TicketMessage(
+        ticket_id=t1.id, author_id=portal_user.id, type="PUBLIC", body="public1"
+    )
+    m2 = TicketMessage(
+        ticket_id=t1.id, author_id=agent_a.id, type="INTERNAL", body="internal1"
+    )
     # Messages for t2
-    m3 = TicketMessage(ticket_id=t2.id, author_id=agent_priv.id, type="PUBLIC", body="p_conf")
-    m4 = TicketMessage(ticket_id=t2.id, author_id=agent_priv.id, type="INTERNAL", body="i_conf")
+    m3 = TicketMessage(
+        ticket_id=t2.id, author_id=agent_priv.id, type="PUBLIC", body="p_conf"
+    )
+    m4 = TicketMessage(
+        ticket_id=t2.id, author_id=agent_priv.id, type="INTERNAL", body="i_conf"
+    )
     db.add_all([m1, m2, m3, m4])
     db.commit()
 

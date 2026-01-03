@@ -1,16 +1,14 @@
 """Pytest configuration and fixtures for testing."""
 
-import os
 
 import pytest
+from app.db.session import Base, get_db
+from app.main import app
+from app.models.models import OrgUnit, Role, Team, Ticket, User
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-
-from app.db.session import Base, get_db
-from app.main import app
-from app.models.models import Role, Team, Ticket, User, OrgUnit
 
 # Use SQLite in-memory database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

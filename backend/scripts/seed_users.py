@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Script to seed the database with test users."""
 
-from sqlalchemy.orm import sessionmaker
-from app.db.session import engine
-from app.models.models import User, Role
 from app.core.auth import get_password_hash
+from app.db.session import engine
+from app.models.models import Role, User
+from sqlalchemy.orm import sessionmaker
 
 # Create session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def seed_users():
     """Seed test users."""
@@ -30,9 +31,24 @@ def seed_users():
 
         # Create test users
         users_data = [
-            {"username": "admin", "email": "admin@example.com", "password": "admin123", "role_id": admin_role.id},
-            {"username": "user1", "email": "user1@example.com", "password": "user123", "role_id": user_role.id},
-            {"username": "user2", "email": "user2@example.com", "password": "user456", "role_id": user_role.id},
+            {
+                "username": "admin",
+                "email": "admin@example.com",
+                "password": "admin123",
+                "role_id": admin_role.id,
+            },
+            {
+                "username": "user1",
+                "email": "user1@example.com",
+                "password": "user123",
+                "role_id": user_role.id,
+            },
+            {
+                "username": "user2",
+                "email": "user2@example.com",
+                "password": "user456",
+                "role_id": user_role.id,
+            },
         ]
 
         for user_data in users_data:
@@ -50,6 +66,7 @@ def seed_users():
         print(f"Error seeding users: {e}")
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     seed_users()

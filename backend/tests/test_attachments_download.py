@@ -1,7 +1,7 @@
 from app.core.auth import create_access_token
 from app.core.org_unit import create_org_unit
 from app.core.storage import get_storage_client
-from app.models.models import Attachment, AuditLog, Ticket, User, Team, TeamMember, Role
+from app.models.models import Attachment, AuditLog, Role, Team, TeamMember, Ticket, User
 
 
 class FakeStorageClient:
@@ -35,12 +35,27 @@ def test_portal_download_clean_presigns(db, client, sample_role):
     db.add(user)
     db.commit()
 
-    ticket = Ticket(title="T", description="d", status="OPEN", priority="MED", created_by=user.id, owner_org_unit_id=school.id)
+    ticket = Ticket(
+        title="T",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=user.id,
+        owner_org_unit_id=school.id,
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=user.id, object_key="k1", original_filename="f.txt", mime="text/plain", size=10, scanned_status="CLEAN")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=user.id,
+        object_key="k1",
+        original_filename="f.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="CLEAN",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
@@ -50,15 +65,22 @@ def test_portal_download_clean_presigns(db, client, sample_role):
     app.dependency_overrides[get_storage_client] = lambda: FakeStorageClient()
 
     headers = _auth_headers_for_user(user.username)
-    resp = client.get(f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 200
     data = resp.json()
     from app.core.config import get_settings
+
     settings = get_settings()
     public = settings.S3_PUBLIC_BASE_URL or "http://localhost:9000"
     assert data["download_url"].startswith(public)
 
-    rows = db.query(AuditLog).filter(AuditLog.action == "TICKET_ATTACHMENT_DOWNLOAD_PRESIGNED").all()
+    rows = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "TICKET_ATTACHMENT_DOWNLOAD_PRESIGNED")
+        .all()
+    )
     assert len(rows) == 1
 
     app.dependency_overrides.pop(get_storage_client, None)
@@ -79,21 +101,42 @@ def test_portal_download_infected_blocked(db, client):
     db.add(user)
     db.commit()
 
-    ticket = Ticket(title="T2", description="d", status="OPEN", priority="MED", created_by=user.id, owner_org_unit_id=school.id)
+    ticket = Ticket(
+        title="T2",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=user.id,
+        owner_org_unit_id=school.id,
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=user.id, object_key="k2", original_filename="f2.txt", mime="text/plain", size=10, scanned_status="INFECTED")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=user.id,
+        object_key="k2",
+        original_filename="f2.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="INFECTED",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(user.username)
-    resp = client.get(f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 403
 
-    rows = db.query(AuditLog).filter(AuditLog.action == "ATTACHMENT_DOWNLOAD_BLOCKED").all()
+    rows = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "ATTACHMENT_DOWNLOAD_BLOCKED")
+        .all()
+    )
     assert any(r.entity_id == att.id for r in rows)
 
 
@@ -112,21 +155,42 @@ def test_portal_download_pending_blocked(db, client):
     db.add(user)
     db.commit()
 
-    ticket = Ticket(title="TP", description="d", status="OPEN", priority="MED", created_by=user.id, owner_org_unit_id=school.id)
+    ticket = Ticket(
+        title="TP",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=user.id,
+        owner_org_unit_id=school.id,
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=user.id, object_key="kp", original_filename="fp.txt", mime="text/plain", size=10, scanned_status="PENDING")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=user.id,
+        object_key="kp",
+        original_filename="fp.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="PENDING",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(user.username)
-    resp = client.get(f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 409
 
-    rows = db.query(AuditLog).filter(AuditLog.action == "ATTACHMENT_DOWNLOAD_BLOCKED").all()
+    rows = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "ATTACHMENT_DOWNLOAD_BLOCKED")
+        .all()
+    )
     assert any(r.entity_id == att.id for r in rows)
 
 
@@ -145,21 +209,42 @@ def test_portal_download_failed_blocked(db, client):
     db.add(user)
     db.commit()
 
-    ticket = Ticket(title="TF", description="d", status="OPEN", priority="MED", created_by=user.id, owner_org_unit_id=school.id)
+    ticket = Ticket(
+        title="TF",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=user.id,
+        owner_org_unit_id=school.id,
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=user.id, object_key="kf", original_filename="ff.txt", mime="text/plain", size=10, scanned_status="FAILED")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=user.id,
+        object_key="kf",
+        original_filename="ff.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="FAILED",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(user.username)
-    resp = client.get(f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 409
 
-    rows = db.query(AuditLog).filter(AuditLog.action == "ATTACHMENT_DOWNLOAD_BLOCKED").all()
+    rows = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "ATTACHMENT_DOWNLOAD_BLOCKED")
+        .all()
+    )
     assert any(r.entity_id == att.id for r in rows)
 
 
@@ -178,18 +263,36 @@ def test_portal_confidential_without_permission_404(db, client):
     db.add(user)
     db.commit()
 
-    ticket = Ticket(title="TC", description="d", status="OPEN", priority="MED", created_by=user.id, owner_org_unit_id=school.id, sensitivity_level="CONFIDENTIAL")
+    ticket = Ticket(
+        title="TC",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=user.id,
+        owner_org_unit_id=school.id,
+        sensitivity_level="CONFIDENTIAL",
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=user.id, object_key="k3", original_filename="f3.txt", mime="text/plain", size=10, scanned_status="CLEAN")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=user.id,
+        object_key="k3",
+        original_filename="f3.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="CLEAN",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(user.username)
-    resp = client.get(f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 404
 
     rows = db.query(AuditLog).filter(AuditLog.action == "PERMISSION_DENIED").all()
@@ -225,21 +328,40 @@ def test_agent_download_regular_clean(db, client):
     db.refresh(agent)
 
     # ticket assigned to team
-    ticket = Ticket(title="TA", description="d", status="OPEN", priority="MED", created_by=agent.id, owner_org_unit_id=school.id, team_id=team.id)
+    ticket = Ticket(
+        title="TA",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=agent.id,
+        owner_org_unit_id=school.id,
+        team_id=team.id,
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=agent.id, object_key="k4", original_filename="f4.txt", mime="text/plain", size=10, scanned_status="CLEAN")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=agent.id,
+        object_key="k4",
+        original_filename="f4.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="CLEAN",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     from app.main import app
+
     app.dependency_overrides[get_storage_client] = lambda: FakeStorageClient()
 
     headers = _auth_headers_for_user(agent.username)
-    resp = client.get(f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 200
 
     app.dependency_overrides.pop(get_storage_client, None)
@@ -265,18 +387,37 @@ def test_agent_confidential_without_permission_404(db, client):
     db.add(tm)
     db.commit()
 
-    ticket = Ticket(title="TC2", description="d", status="OPEN", priority="MED", created_by=agent.id, owner_org_unit_id=None, team_id=team.id, sensitivity_level="CONFIDENTIAL")
+    ticket = Ticket(
+        title="TC2",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=agent.id,
+        owner_org_unit_id=None,
+        team_id=team.id,
+        sensitivity_level="CONFIDENTIAL",
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=agent.id, object_key="k5", original_filename="f5.txt", mime="text/plain", size=10, scanned_status="CLEAN")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=agent.id,
+        object_key="k5",
+        original_filename="f5.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="CLEAN",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(agent.username)
-    resp = client.get(f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 404
 
 
@@ -306,18 +447,36 @@ def test_agent_download_pending_blocked(db, client):
     db.commit()
     db.refresh(agent)
 
-    ticket = Ticket(title="TAP", description="d", status="OPEN", priority="MED", created_by=agent.id, owner_org_unit_id=school.id, team_id=team.id)
+    ticket = Ticket(
+        title="TAP",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=agent.id,
+        owner_org_unit_id=school.id,
+        team_id=team.id,
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=agent.id, object_key="k_pending", original_filename="fp.txt", mime="text/plain", size=10, scanned_status="PENDING")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=agent.id,
+        object_key="k_pending",
+        original_filename="fp.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="PENDING",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(agent.username)
-    resp = client.get(f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 409
 
 
@@ -347,18 +506,36 @@ def test_agent_download_failed_blocked(db, client):
     db.commit()
     db.refresh(agent)
 
-    ticket = Ticket(title="TAF", description="d", status="OPEN", priority="MED", created_by=agent.id, owner_org_unit_id=school.id, team_id=team.id)
+    ticket = Ticket(
+        title="TAF",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=agent.id,
+        owner_org_unit_id=school.id,
+        team_id=team.id,
+    )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
 
-    att = Attachment(ticket_id=ticket.id, uploaded_by=agent.id, object_key="k_failed", original_filename="ff.txt", mime="text/plain", size=10, scanned_status="FAILED")
+    att = Attachment(
+        ticket_id=ticket.id,
+        uploaded_by=agent.id,
+        object_key="k_failed",
+        original_filename="ff.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="FAILED",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(agent.username)
-    resp = client.get(f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/agent/tickets/{ticket.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 409
 
 
@@ -378,20 +555,44 @@ def test_idor_attachment_not_belonging_to_ticket_returns_404(db, client):
     db.add(user)
     db.commit()
 
-    ticket1 = Ticket(title="T1", description="d", status="OPEN", priority="MED", created_by=user.id, owner_org_unit_id=school.id)
-    ticket2 = Ticket(title="T2", description="d", status="OPEN", priority="MED", created_by=user.id, owner_org_unit_id=school.id)
+    ticket1 = Ticket(
+        title="T1",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=user.id,
+        owner_org_unit_id=school.id,
+    )
+    ticket2 = Ticket(
+        title="T2",
+        description="d",
+        status="OPEN",
+        priority="MED",
+        created_by=user.id,
+        owner_org_unit_id=school.id,
+    )
     db.add(ticket1)
     db.add(ticket2)
     db.commit()
     db.refresh(ticket1)
     db.refresh(ticket2)
 
-    att = Attachment(ticket_id=ticket2.id, uploaded_by=user.id, object_key="k6", original_filename="f6.txt", mime="text/plain", size=10, scanned_status="CLEAN")
+    att = Attachment(
+        ticket_id=ticket2.id,
+        uploaded_by=user.id,
+        object_key="k6",
+        original_filename="f6.txt",
+        mime="text/plain",
+        size=10,
+        scanned_status="CLEAN",
+    )
     db.add(att)
     db.commit()
     db.refresh(att)
 
     headers = _auth_headers_for_user(user.username)
     # attempt to download attachment att.id via ticket1 -> should 404
-    resp = client.get(f"/tickets/{ticket1.id}/attachments/{att.id}/download", headers=headers)
+    resp = client.get(
+        f"/tickets/{ticket1.id}/attachments/{att.id}/download", headers=headers
+    )
     assert resp.status_code == 404

@@ -1,9 +1,8 @@
 """Tests for database models and operations."""
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from app.models.models import Role, Team, Ticket, User
+from sqlalchemy.exc import IntegrityError
 
 
 class TestRoleModel:

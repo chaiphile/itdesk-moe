@@ -1,8 +1,7 @@
 from typing import Optional
 
-from sqlalchemy.orm import Session
-
 from app.models.models import OrgUnit
+from sqlalchemy.orm import Session
 
 SCOPE_LEVELS = ("SELF", "SCHOOL", "REGION", "PROVINCE", "MINISTRY")
 

@@ -1,5 +1,4 @@
 import os
-from urllib.parse import urlparse
 
 import pandas as pd
 from sqlalchemy import create_engine, text

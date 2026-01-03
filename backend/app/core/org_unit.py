@@ -1,9 +1,7 @@
 from typing import List, Optional
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.models.models import OrgUnit
+from sqlalchemy.orm import Session
 
 
 def _padded(id_: int) -> str:

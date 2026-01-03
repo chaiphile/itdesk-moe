@@ -1,5 +1,4 @@
 from app.core.org_unit import create_org_unit, get_descendants
-from app.models.models import OrgUnit
 
 
 def test_create_org_unit_path_and_depth(db):

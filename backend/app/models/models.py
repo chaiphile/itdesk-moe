@@ -5,22 +5,21 @@ Ticket Core schema described in the task while keeping backward-compatible
 column names where the DB already used legacy names (for example 'user_id').
 """
 
+from app.db.session import Base
 from sqlalchemy import (
     JSON,
+    BigInteger,
     CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    BigInteger,
     String,
     Text,
     func,
 )
 from sqlalchemy.orm import relationship
-
-from app.db.session import Base
 
 
 class Role(Base):
@@ -265,7 +264,12 @@ class Attachment(Base):
     __tablename__ = "attachments"
 
     id = Column(Integer, primary_key=True, index=True)
-    ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticket_id = Column(
+        Integer,
+        ForeignKey("tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     object_key = Column(String, nullable=False, unique=True, index=True)
     original_filename = Column(String, nullable=False)
@@ -278,7 +282,9 @@ class Attachment(Base):
     retention_days = Column(Integer, nullable=True)
     status = Column(String, nullable=False, server_default="ACTIVE")
     redacted_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     __table_args__ = (

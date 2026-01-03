@@ -1,8 +1,6 @@
 """Tests for new ticket core schema: tables, models and relationships."""
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from app.models.models import (
     Category,
     OrgUnit,
@@ -12,6 +10,7 @@ from app.models.models import (
     TicketMessage,
     User,
 )
+from sqlalchemy.exc import IntegrityError
 
 
 def test_ticket_core_schema_and_relationships(db):

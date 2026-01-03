@@ -1,25 +1,22 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
-from sqlalchemy.orm import Session, selectinload
-
 from app.core import agent_queues as agent_service
 from app.core.audit import write_audit
 from app.core.auth import get_current_user, has_permission
+from app.core.config import get_settings
 from app.core.org_scope import is_orgunit_in_scope
+from app.core.storage import StorageClient, get_storage_client
 from app.db.session import get_db
-from app.models.models import AuditLog, Team
+from app.models.models import Attachment
 from app.models.models import TeamMember
 from app.models.models import TeamMember as TM
-from app.models.models import Ticket
+from app.models.models import Ticket, TicketMessage
 from app.models.models import User
 from app.models.models import User as UserModel
-from app.models.models import TicketMessage
-from app.models.models import Attachment
-from app.core.storage import get_storage_client, StorageClient
-from app.core.config import get_settings
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session, selectinload
 
 router = APIRouter()
 
@@ -268,7 +265,6 @@ def assign_ticket(
     }
 
 
-
 @router.get("/agent/tickets/{ticket_id}/attachments/{attachment_id}/download")
 def download_attachment_agent(
     ticket_id: int,
@@ -284,15 +280,21 @@ def download_attachment_agent(
     team_count = db.query(TeamMember).filter(TeamMember.user_id == user_id).count()
     role_name = getattr(getattr(current_user, "role", None), "name", None)
     if team_count == 0 and role_name != "agent":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Agent access required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Agent access required"
+        )
 
     # Fetch ticket
     ticket: Ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Confidential tickets: audit and 404
-    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(current_user, "CONFIDENTIAL_VIEW"):
+    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(
+        current_user, "CONFIDENTIAL_VIEW"
+    ):
         try:
             ip = request.client.host if request.client else None
         except Exception:
@@ -311,12 +313,16 @@ def download_attachment_agent(
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Org scope check
     viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
     scope_level = getattr(current_user, "scope_level", "SELF")
-    if not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id):
+    if not is_orgunit_in_scope(
+        db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id
+    ):
         try:
             write_audit(
                 db,
@@ -330,7 +336,9 @@ def download_attachment_agent(
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope"
+        )
 
     # Actor team membership
     actor_team_ids = [
@@ -355,12 +363,21 @@ def download_attachment_agent(
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not permitted to act on this team")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User not permitted to act on this team",
+        )
 
     # Load attachment bound to ticket to avoid IDOR
-    attachment = db.query(Attachment).filter(Attachment.id == attachment_id, Attachment.ticket_id == ticket_id).first()
+    attachment = (
+        db.query(Attachment)
+        .filter(Attachment.id == attachment_id, Attachment.ticket_id == ticket_id)
+        .first()
+    )
     if attachment is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found"
+        )
 
     # Block infected
     if attachment.scanned_status == "INFECTED":
@@ -371,13 +388,19 @@ def download_attachment_agent(
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
                 entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "INFECTED", "path": request.url.path, "method": request.method},
+                meta={
+                    "reason": "INFECTED",
+                    "path": request.url.path,
+                    "method": request.method,
+                },
                 ip=(request.client.host if request.client else None),
                 user_agent=request.headers.get("user-agent"),
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Attachment blocked")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Attachment blocked"
+        )
 
     if attachment.scanned_status == "FAILED":
         try:
@@ -387,13 +410,19 @@ def download_attachment_agent(
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
                 entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "FAILED", "path": request.url.path, "method": request.method},
+                meta={
+                    "reason": "FAILED",
+                    "path": request.url.path,
+                    "method": request.method,
+                },
                 ip=(request.client.host if request.client else None),
                 user_agent=request.headers.get("user-agent"),
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan failed")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Attachment scan failed"
+        )
 
     # Pending scans should block downloads until scan completes
     if attachment.scanned_status == "PENDING":
@@ -404,18 +433,34 @@ def download_attachment_agent(
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
                 entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "PENDING", "path": request.url.path, "method": request.method},
+                meta={
+                    "reason": "PENDING",
+                    "path": request.url.path,
+                    "method": request.method,
+                },
                 ip=(request.client.host if request.client else None),
                 user_agent=request.headers.get("user-agent"),
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan pending")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Attachment scan pending"
+        )
 
     # Presign
     expires = settings.ATTACHMENTS_PRESIGN_EXPIRES_SECONDS
-    bucket_name = (settings.MINIO_BUCKET or settings.S3_BUCKET) if hasattr(settings, "MINIO_BUCKET") else (settings.S3_BUCKET if hasattr(settings, "S3_BUCKET") else settings.S3_ACCESS_KEY)
-    download_url = storage.presign_get(bucket=bucket_name, key=attachment.object_key, expires_seconds=expires)
+    bucket_name = (
+        (settings.MINIO_BUCKET or settings.S3_BUCKET)
+        if hasattr(settings, "MINIO_BUCKET")
+        else (
+            settings.S3_BUCKET
+            if hasattr(settings, "S3_BUCKET")
+            else settings.S3_ACCESS_KEY
+        )
+    )
+    download_url = storage.presign_get(
+        bucket=bucket_name, key=attachment.object_key, expires_seconds=expires
+    )
 
     try:
         write_audit(
@@ -424,7 +469,11 @@ def download_attachment_agent(
             action="TICKET_ATTACHMENT_DOWNLOAD_PRESIGNED",
             entity_type="attachment",
             entity_id=attachment.id,
-            diff={"ticket_id": ticket.id, "object_key": attachment.object_key, "scanned_status": attachment.scanned_status},
+            diff={
+                "ticket_id": ticket.id,
+                "object_key": attachment.object_key,
+                "scanned_status": attachment.scanned_status,
+            },
             meta={"path": request.url.path, "method": request.method},
             ip=(request.client.host if request.client else None),
             user_agent=request.headers.get("user-agent"),
@@ -432,7 +481,11 @@ def download_attachment_agent(
     except Exception:
         pass
 
-    return {"attachment_id": attachment.id, "download_url": download_url, "expires_in": expires}
+    return {
+        "attachment_id": attachment.id,
+        "download_url": download_url,
+        "expires_in": expires,
+    }
 
 
 class StatusPayload(BaseModel):
@@ -728,10 +781,17 @@ def post_ticket_message(
     # Validate body
     body = (payload.body or "").strip()
     if not body:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty body")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Empty body"
+        )
 
     # Create message
-    msg = TicketMessage(ticket_id=ticket.id, author_id=getattr(current_user, "id", None), type=payload.type, body=body)
+    msg = TicketMessage(
+        ticket_id=ticket.id,
+        author_id=getattr(current_user, "id", None),
+        type=payload.type,
+        body=body,
+    )
     db.add(msg)
     db.commit()
     db.refresh(msg)
@@ -763,9 +823,10 @@ def post_ticket_message(
         "ticket_id": msg.ticket_id,
         "author_id": msg.author_id,
         "type": msg.type,
-        "created_at": msg.created_at.isoformat() if msg.created_at is not None else None,
+        "created_at": (
+            msg.created_at.isoformat() if msg.created_at is not None else None
+        ),
     }
-
 
 
 @router.get("/agent/tickets/{ticket_id}")
@@ -826,7 +887,9 @@ def get_agent_ticket(
     # Org scope check
     viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
     scope_level = getattr(current_user, "scope_level", "SELF")
-    if not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id):
+    if not is_orgunit_in_scope(
+        db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id
+    ):
         try:
             write_audit(
                 db,
@@ -878,9 +941,15 @@ def get_agent_ticket(
         "status": ticket.status,
         "priority": ticket.priority,
         "owner_org_unit_id": ticket.owner_org_unit_id,
-        "created_at": ticket.created_at.isoformat() if ticket.created_at is not None else None,
-        "updated_at": ticket.updated_at.isoformat() if ticket.updated_at is not None else None,
-        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at is not None else None,
+        "created_at": (
+            ticket.created_at.isoformat() if ticket.created_at is not None else None
+        ),
+        "updated_at": (
+            ticket.updated_at.isoformat() if ticket.updated_at is not None else None
+        ),
+        "closed_at": (
+            ticket.closed_at.isoformat() if ticket.closed_at is not None else None
+        ),
         "sensitivity_level": ticket.sensitivity_level,
         "messages": [
             {
@@ -888,7 +957,9 @@ def get_agent_ticket(
                 "author_id": m.author_id,
                 "type": m.type,
                 "body": m.body,
-                "created_at": m.created_at.isoformat() if m.created_at is not None else None,
+                "created_at": (
+                    m.created_at.isoformat() if m.created_at is not None else None
+                ),
             }
             for m in sorted(ticket.messages, key=lambda x: x.created_at or 0)
         ],

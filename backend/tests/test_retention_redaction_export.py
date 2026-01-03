@@ -1,14 +1,11 @@
 """Tests for attachment retention, redaction, and export functionality."""
-import pytest
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
 
-from app.core.redaction import RedactionEngine, RedactionRuleset
-from app.core.auth import create_access_token
-from app.core.org_unit import create_org_unit
-from app.models.models import (
-    Attachment, Ticket, User, Role, OrgUnit, TeamMember, Team
-)
+from datetime import datetime, timedelta
+
+import pytest
+from app.core.redaction import RedactionEngine
+from app.models.models import Attachment
+from sqlalchemy.orm import Session
 
 
 class TestRedactionRules:
@@ -25,8 +22,7 @@ class TestRedactionRules:
         }
 
         redacted = engine.redact_attachment_metadata(
-            attachment_data,
-            sensitivity_level="CONFIDENTIAL"
+            attachment_data, sensitivity_level="CONFIDENTIAL"
         )
 
         assert redacted["original_filename"] != "secret_report.pdf"
@@ -44,8 +40,7 @@ class TestRedactionRules:
         }
 
         redacted = engine.redact_attachment_metadata(
-            attachment_data,
-            sensitivity_level="RESTRICTED"
+            attachment_data, sensitivity_level="RESTRICTED"
         )
 
         assert redacted["original_filename"] == "[REDACTED FILE]"
@@ -62,8 +57,7 @@ class TestRedactionRules:
         }
 
         redacted = engine.redact_attachment_metadata(
-            attachment_data,
-            sensitivity_level="REGULAR"
+            attachment_data, sensitivity_level="REGULAR"
         )
 
         assert redacted["original_filename"] == "document.pdf"
@@ -92,10 +86,7 @@ class TestRedactionRules:
         }
 
         # Without export permission
-        redacted = engine.redact_ticket_export(
-            ticket_data,
-            has_export_permission=False
-        )
+        redacted = engine.redact_ticket_export(ticket_data, has_export_permission=False)
 
         assert len(redacted["attachments"]) == 1
         assert redacted["attachments"][0]["id"] == 1
@@ -123,10 +114,7 @@ class TestRedactionRules:
         }
 
         # With export permission
-        redacted = engine.redact_ticket_export(
-            ticket_data,
-            has_export_permission=True
-        )
+        redacted = engine.redact_ticket_export(ticket_data, has_export_permission=True)
 
         assert len(redacted["attachments"]) == 2
 
@@ -141,10 +129,7 @@ class TestRedactionRules:
             "attachments": [],
         }
 
-        redacted = engine.redact_ticket_export(
-            ticket_data,
-            has_export_permission=False
-        )
+        redacted = engine.redact_ticket_export(ticket_data, has_export_permission=False)
 
         assert redacted["title"] != "Confidential Matter"
         assert redacted["description"] != "Detailed confidential information"
@@ -254,7 +239,9 @@ class TestAttachmentRetention:
         db.commit()
 
         # Query back
-        all_atts = db.query(Attachment).filter(Attachment.ticket_id == sample_ticket.id).all()
+        all_atts = (
+            db.query(Attachment).filter(Attachment.ticket_id == sample_ticket.id).all()
+        )
         assert len(all_atts) == 3
 
         levels = {a.object_key: a.sensitivity_level for a in all_atts}

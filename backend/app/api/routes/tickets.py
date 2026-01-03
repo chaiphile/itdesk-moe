@@ -1,27 +1,23 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field, validator
-from uuid import uuid4
-import re
 import os
+import re
 from datetime import datetime
-import json
-from sqlalchemy.orm import Session, selectinload, with_loader_criteria
+from typing import List
+from uuid import uuid4
 
 from app.core import tickets as ticket_service
 from app.core.audit import write_audit
 from app.core.auth import get_current_user, has_permission
+from app.core.config import get_settings
 from app.core.org_scope import is_orgunit_in_scope
 from app.core.redaction import create_redaction_engine
+from app.core.storage import StorageClient, get_storage_client
 from app.db.session import get_db
-from app.models.models import Ticket, User, TicketMessage
-from app.models.models import Attachment, AuditLog
-from app.core.storage import get_storage_client, StorageClient
-from app.core.config import get_settings
+from app.models.models import Attachment, Ticket, TicketMessage, User
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field, validator
+from sqlalchemy.orm import Session, selectinload, with_loader_criteria
 
 router = APIRouter()
-
 
 
 def _safe_filename(name: str) -> str:
@@ -120,7 +116,9 @@ def get_ticket_by_id(
         .options(
             selectinload(Ticket.messages),
             # apply loader criteria to ensure only PUBLIC messages are loaded
-            with_loader_criteria(TicketMessage, TicketMessage.type == "PUBLIC", include_aliases=True),
+            with_loader_criteria(
+                TicketMessage, TicketMessage.type == "PUBLIC", include_aliases=True
+            ),
         )
         .filter(Ticket.id == ticket_id)
         .first()
@@ -180,7 +178,9 @@ def get_ticket_by_id(
                     "method": request.method if request is not None else None,
                 },
                 ip=(request.client.host if request and request.client else None),
-                user_agent=(request.headers.get("user-agent") if request is not None else None),
+                user_agent=(
+                    request.headers.get("user-agent") if request is not None else None
+                ),
             )
         except Exception:
             pass
@@ -203,7 +203,9 @@ def get_ticket_by_id(
                     "method": request.method if request is not None else None,
                 },
                 ip=(request.client.host if request and request.client else None),
-                user_agent=(request.headers.get("user-agent") if request is not None else None),
+                user_agent=(
+                    request.headers.get("user-agent") if request is not None else None
+                ),
             )
         except Exception:
             pass
@@ -219,9 +221,15 @@ def get_ticket_by_id(
         "created_by": ticket.created_by,
         "priority": ticket.priority,
         "status": ticket.status,
-        "created_at": ticket.created_at.isoformat() if ticket.created_at is not None else None,
-        "updated_at": ticket.updated_at.isoformat() if ticket.updated_at is not None else None,
-        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at is not None else None,
+        "created_at": (
+            ticket.created_at.isoformat() if ticket.created_at is not None else None
+        ),
+        "updated_at": (
+            ticket.updated_at.isoformat() if ticket.updated_at is not None else None
+        ),
+        "closed_at": (
+            ticket.closed_at.isoformat() if ticket.closed_at is not None else None
+        ),
         "sensitivity_level": ticket.sensitivity_level,
         "messages": [
             {
@@ -229,12 +237,13 @@ def get_ticket_by_id(
                 "author_id": m.author_id,
                 "type": m.type,
                 "body": m.body,
-                "created_at": m.created_at.isoformat() if m.created_at is not None else None,
+                "created_at": (
+                    m.created_at.isoformat() if m.created_at is not None else None
+                ),
             }
             for m in sorted(ticket.messages, key=lambda x: x.created_at or 0)
         ],
     }
-
 
 
 @router.post("/tickets/{ticket_id}/attachments/presign", response_model=PresignResponse)
@@ -250,13 +259,19 @@ def presign_attachment(
     # Load ticket
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Confidential check
-    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(current_user, "CONFIDENTIAL_VIEW"):
+    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(
+        current_user, "CONFIDENTIAL_VIEW"
+    ):
         try:
             ip = request.client.host if request and request.client else None
-            user_agent = request.headers.get("user-agent") if request is not None else None
+            user_agent = (
+                request.headers.get("user-agent") if request is not None else None
+            )
             write_audit(
                 db,
                 actor_id=getattr(current_user, "id", None),
@@ -272,13 +287,17 @@ def presign_attachment(
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Org scope enforcement
     target_org_id = ticket.owner_org_unit_id
     viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
     scope_level = getattr(current_user, "scope_level", "SELF")
-    if target_org_id is None or not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, target_org_id):
+    if target_org_id is None or not is_orgunit_in_scope(
+        db, viewer_org_unit_id, scope_level, target_org_id
+    ):
         try:
             write_audit(
                 db,
@@ -291,16 +310,22 @@ def presign_attachment(
                     "method": request.method if request is not None else None,
                 },
                 ip=(request.client.host if request and request.client else None),
-                user_agent=(request.headers.get("user-agent") if request is not None else None),
+                user_agent=(
+                    request.headers.get("user-agent") if request is not None else None
+                ),
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope"
+        )
 
     # Validate size
     max_size = settings.ATTACHMENTS_MAX_SIZE_BYTES
     if payload.size <= 0 or payload.size > max_size:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid attachment size")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid attachment size"
+        )
 
     # Sanitize filename and create object key
     safe_name = _safe_filename(payload.original_filename)
@@ -327,7 +352,15 @@ def presign_attachment(
 
     # Generate presigned URL
     expires = settings.ATTACHMENTS_PRESIGN_EXPIRES_SECONDS
-    bucket_name = (settings.MINIO_BUCKET or settings.S3_BUCKET) if hasattr(settings, "MINIO_BUCKET") else (settings.S3_BUCKET if hasattr(settings, "S3_BUCKET") else settings.S3_ACCESS_KEY)
+    bucket_name = (
+        (settings.MINIO_BUCKET or settings.S3_BUCKET)
+        if hasattr(settings, "MINIO_BUCKET")
+        else (
+            settings.S3_BUCKET
+            if hasattr(settings, "S3_BUCKET")
+            else settings.S3_ACCESS_KEY
+        )
+    )
     upload_url = storage.presign_put(
         bucket=bucket_name,
         key=object_key,
@@ -345,8 +378,16 @@ def presign_attachment(
             action="TICKET_ATTACHMENT_PRESIGNED",
             entity_type="attachment",
             entity_id=attachment.id,
-            diff={"ticket_id": ticket.id, "object_key": object_key, "size": payload.size, "mime": payload.mime},
-            meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+            diff={
+                "ticket_id": ticket.id,
+                "object_key": object_key,
+                "size": payload.size,
+                "mime": payload.mime,
+            },
+            meta={
+                "path": request.url.path if request is not None else None,
+                "method": request.method if request is not None else None,
+            },
             ip=ip,
             user_agent=user_agent,
         )
@@ -374,7 +415,9 @@ def download_attachment_portal(
     # Load ticket
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Load attachment while enforcing binding to ticket to prevent IDOR
     attachment = (
@@ -383,26 +426,36 @@ def download_attachment_portal(
         .first()
     )
     if attachment is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found"
+        )
 
     # Block infected
     if attachment.scanned_status == "INFECTED":
         try:
             ip = request.client.host if request and request.client else None
-            user_agent = request.headers.get("user-agent") if request is not None else None
+            user_agent = (
+                request.headers.get("user-agent") if request is not None else None
+            )
             write_audit(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
                 entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "INFECTED", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={
+                    "reason": "INFECTED",
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
                 ip=ip,
                 user_agent=user_agent,
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Attachment blocked")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Attachment blocked"
+        )
 
     # Failed scans: block as well (consistent choice)
     if attachment.scanned_status == "FAILED":
@@ -413,13 +466,21 @@ def download_attachment_portal(
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
                 entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "FAILED", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={
+                    "reason": "FAILED",
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
                 ip=(request.client.host if request and request.client else None),
-                user_agent=(request.headers.get("user-agent") if request is not None else None),
+                user_agent=(
+                    request.headers.get("user-agent") if request is not None else None
+                ),
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan failed")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Attachment scan failed"
+        )
 
     # Pending scans: do not allow download until scan completes
     if attachment.scanned_status == "PENDING":
@@ -430,38 +491,57 @@ def download_attachment_portal(
                 action="ATTACHMENT_DOWNLOAD_BLOCKED",
                 entity_type="ticket_attachment_download",
                 entity_id=attachment.id,
-                meta={"reason": "PENDING", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={
+                    "reason": "PENDING",
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
                 ip=(request.client.host if request and request.client else None),
-                user_agent=(request.headers.get("user-agent") if request is not None else None),
+                user_agent=(
+                    request.headers.get("user-agent") if request is not None else None
+                ),
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attachment scan pending")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Attachment scan pending"
+        )
 
     # Confidential check: hide as 404 and audit
-    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(current_user, "CONFIDENTIAL_VIEW"):
+    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(
+        current_user, "CONFIDENTIAL_VIEW"
+    ):
         try:
             ip = request.client.host if request and request.client else None
-            user_agent = request.headers.get("user-agent") if request is not None else None
+            user_agent = (
+                request.headers.get("user-agent") if request is not None else None
+            )
             write_audit(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="PERMISSION_DENIED",
                 entity_type="ticket_attachment_download",
                 entity_id=ticket.id,
-                meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
                 ip=ip,
                 user_agent=user_agent,
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Org scope enforcement
     target_org_id = ticket.owner_org_unit_id
     viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
     scope_level = getattr(current_user, "scope_level", "SELF")
-    if target_org_id is None or not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, target_org_id):
+    if target_org_id is None or not is_orgunit_in_scope(
+        db, viewer_org_unit_id, scope_level, target_org_id
+    ):
         try:
             write_audit(
                 db,
@@ -469,18 +549,35 @@ def download_attachment_portal(
                 action="PERMISSION_DENIED",
                 entity_type="ticket_attachment_download",
                 entity_id=ticket.id,
-                meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
                 ip=(request.client.host if request and request.client else None),
-                user_agent=(request.headers.get("user-agent") if request is not None else None),
+                user_agent=(
+                    request.headers.get("user-agent") if request is not None else None
+                ),
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope"
+        )
 
     # Generate presigned GET URL
     expires = settings.ATTACHMENTS_PRESIGN_EXPIRES_SECONDS
-    bucket_name = (settings.MINIO_BUCKET or settings.S3_BUCKET) if hasattr(settings, "MINIO_BUCKET") else (settings.S3_BUCKET if hasattr(settings, "S3_BUCKET") else settings.S3_ACCESS_KEY)
-    download_url = storage.presign_get(bucket=bucket_name, key=attachment.object_key, expires_seconds=expires)
+    bucket_name = (
+        (settings.MINIO_BUCKET or settings.S3_BUCKET)
+        if hasattr(settings, "MINIO_BUCKET")
+        else (
+            settings.S3_BUCKET
+            if hasattr(settings, "S3_BUCKET")
+            else settings.S3_ACCESS_KEY
+        )
+    )
+    download_url = storage.presign_get(
+        bucket=bucket_name, key=attachment.object_key, expires_seconds=expires
+    )
 
     # Audit
     try:
@@ -492,15 +589,26 @@ def download_attachment_portal(
             action="TICKET_ATTACHMENT_DOWNLOAD_PRESIGNED",
             entity_type="attachment",
             entity_id=attachment.id,
-            diff={"ticket_id": ticket.id, "object_key": attachment.object_key, "scanned_status": attachment.scanned_status},
-            meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+            diff={
+                "ticket_id": ticket.id,
+                "object_key": attachment.object_key,
+                "scanned_status": attachment.scanned_status,
+            },
+            meta={
+                "path": request.url.path if request is not None else None,
+                "method": request.method if request is not None else None,
+            },
             ip=ip,
             user_agent=user_agent,
         )
     except Exception:
         pass
 
-    return {"attachment_id": attachment.id, "download_url": download_url, "expires_in": expires}
+    return {
+        "attachment_id": attachment.id,
+        "download_url": download_url,
+        "expires_in": expires,
+    }
 
 
 # Export endpoint
@@ -539,57 +647,84 @@ def export_ticket(
     # Load ticket
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Org scope check
     viewer_org_unit_id = getattr(current_user, "org_unit_id", None)
     scope_level = getattr(current_user, "scope_level", "SELF")
-    if not is_orgunit_in_scope(db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id):
+    if not is_orgunit_in_scope(
+        db, viewer_org_unit_id, scope_level, ticket.owner_org_unit_id
+    ):
         try:
             ip = request.client.host if request and request.client else None
-            user_agent = request.headers.get("user-agent") if request is not None else None
+            user_agent = (
+                request.headers.get("user-agent") if request is not None else None
+            )
             write_audit(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="PERMISSION_DENIED",
                 entity_type="ticket_export",
                 entity_id=ticket.id,
-                meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
                 ip=ip,
                 user_agent=user_agent,
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Org unit out of scope"
+        )
 
     # Confidential check
-    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(current_user, "CONFIDENTIAL_VIEW"):
+    if ticket.sensitivity_level == "CONFIDENTIAL" and not has_permission(
+        current_user, "CONFIDENTIAL_VIEW"
+    ):
         try:
             ip = request.client.host if request and request.client else None
-            user_agent = request.headers.get("user-agent") if request is not None else None
+            user_agent = (
+                request.headers.get("user-agent") if request is not None else None
+            )
             write_audit(
                 db,
                 actor_id=getattr(current_user, "id", None),
                 action="PERMISSION_DENIED",
                 entity_type="ticket_export",
                 entity_id=ticket.id,
-                meta={"reason": "CONFIDENTIAL", "path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+                meta={
+                    "reason": "CONFIDENTIAL",
+                    "path": request.url.path if request is not None else None,
+                    "method": request.method if request is not None else None,
+                },
                 ip=ip,
                 user_agent=user_agent,
             )
         except Exception:
             pass
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found"
+        )
 
     # Check for export permission (allows RESTRICTED attachment export)
     has_export_permission = has_permission(current_user, "EXPORT_CONFIDENTIAL")
 
     # Build ticket data
-    messages = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).all()
-    attachments = db.query(Attachment).filter(
-        Attachment.ticket_id == ticket_id,
-        Attachment.status == "ACTIVE"  # Only export non-deleted attachments
-    ).all()
+    messages = (
+        db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id).all()
+    )
+    attachments = (
+        db.query(Attachment)
+        .filter(
+            Attachment.ticket_id == ticket_id,
+            Attachment.status == "ACTIVE",  # Only export non-deleted attachments
+        )
+        .all()
+    )
 
     messages_data = [
         {
@@ -630,8 +765,7 @@ def export_ticket(
     }
 
     redacted_data = redaction_engine.redact_ticket_export(
-        ticket_export_data,
-        has_export_permission=has_export_permission
+        ticket_export_data, has_export_permission=has_export_permission
     )
 
     # Write audit log
@@ -649,7 +783,10 @@ def export_ticket(
                 "attachment_count": len(attachments),
                 "message_count": len(messages),
             },
-            meta={"path": request.url.path if request is not None else None, "method": request.method if request is not None else None},
+            meta={
+                "path": request.url.path if request is not None else None,
+                "method": request.method if request is not None else None,
+            },
             ip=ip,
             user_agent=user_agent,
         )

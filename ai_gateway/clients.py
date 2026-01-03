@@ -1,9 +1,10 @@
-import os
-import requests
-from typing import List
 import hashlib
 import json
+import os
 from json import JSONDecodeError
+from typing import List
+
+import requests
 
 
 class OpenRouterClient:
@@ -25,11 +26,14 @@ class OpenRouterClient:
                 "warnings": [],
             }
         url = f"{self.base}/chat/completions"
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
         # Build a user message that requests STRICT JSON output
         system = {
             "role": "system",
-            "content": "You are a strict JSON generator. Return ONLY a single valid JSON object matching the provided schema. Do not include any explanatory text."
+            "content": "You are a strict JSON generator. Return ONLY a single valid JSON object matching the provided schema. Do not include any explanatory text.",
         }
         user = {"role": "user", "content": text}
         payload = {"model": self.model, "messages": [system, user], "max_tokens": 1500}
@@ -43,7 +47,11 @@ class OpenRouterClient:
             choices = data.get("choices") or []
             if choices:
                 message = choices[0].get("message") or choices[0]
-                content = message.get("content") if isinstance(message, dict) else str(message)
+                content = (
+                    message.get("content")
+                    if isinstance(message, dict)
+                    else str(message)
+                )
 
         # Attempt to parse JSON only from the content
         try:

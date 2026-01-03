@@ -1,13 +1,14 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, create_engine
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 
 from alembic import context
+from app.db.session import Base
+from app.models import models  # noqa: F401
 
-import os
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -23,8 +24,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from app.db.session import Base
-from app.models import models  # noqa: F401
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -47,6 +46,7 @@ def run_migrations_offline() -> None:
     """
     # Use the same database URL as the application
     from app.core.config import get_settings
+
     settings = get_settings()
     context.configure(
         url=settings.DATABASE_URL,
@@ -68,13 +68,12 @@ def run_migrations_online() -> None:
     """
     # Use the database URL from settings
     from app.core.config import get_settings
+
     settings = get_settings()
     connectable = create_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

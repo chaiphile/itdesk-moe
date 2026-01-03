@@ -1,14 +1,11 @@
-import os
-import json
-import shutil
-from fastapi.testclient import TestClient
-import pytest
 import importlib
-from datetime import datetime
 
-from ai_gateway.main import app
+import pytest
+from fastapi.testclient import TestClient
+
 import ai_gateway.db as agdb
 from ai_gateway.db import AISuggestion, AuditEvent
+from ai_gateway.main import app
 
 
 @pytest.fixture(autouse=True)
@@ -34,13 +31,25 @@ def test_accept_success():
     db = agdb.SessionLocal()
     # create suggestion with metadata
     out = {"summary": "ok"}
-    sug = AISuggestion(ticket_id="TKT-A", kind="summarize", payload_json={"out": out, "metadata": {"sensitivity_level": "low", "org_unit_id": "42"}}, model_version="v1")
+    sug = AISuggestion(
+        ticket_id="TKT-A",
+        kind="summarize",
+        payload_json={
+            "out": out,
+            "metadata": {"sensitivity_level": "low", "org_unit_id": "42"},
+        },
+        model_version="v1",
+    )
     db.add(sug)
     db.commit()
 
     client = TestClient(app)
     headers = {"x-ai-gateway-token": "test-token", "x-org-unit": "42"}
-    payload = {"ticket_id": "TKT-A", "comment": "Looks good", "edited_payload_json": None}
+    payload = {
+        "ticket_id": "TKT-A",
+        "comment": "Looks good",
+        "edited_payload_json": None,
+    }
     r = client.post(f"/ai/suggestions/{sug.id}/accept", json=payload, headers=headers)
     assert r.status_code == 200
     assert r.json() == {"status": "ACCEPTED"}
@@ -56,7 +65,12 @@ def test_accept_success():
 def test_reject_success():
     db = agdb.SessionLocal()
     out = {"summary": "ok"}
-    sug = AISuggestion(ticket_id="TKT-R", kind="summarize", payload_json={"out": out, "metadata": {"sensitivity_level": "low"}}, model_version="v1")
+    sug = AISuggestion(
+        ticket_id="TKT-R",
+        kind="summarize",
+        payload_json={"out": out, "metadata": {"sensitivity_level": "low"}},
+        model_version="v1",
+    )
     db.add(sug)
     db.commit()
 
@@ -78,7 +92,12 @@ def test_reject_success():
 def test_idor_binding():
     db = agdb.SessionLocal()
     out = {"summary": "ok"}
-    sug = AISuggestion(ticket_id="TKT-1", kind="summarize", payload_json={"out": out, "metadata": {"sensitivity_level": "low"}}, model_version="v1")
+    sug = AISuggestion(
+        ticket_id="TKT-1",
+        kind="summarize",
+        payload_json={"out": out, "metadata": {"sensitivity_level": "low"}},
+        model_version="v1",
+    )
     db.add(sug)
     db.commit()
 
@@ -93,7 +112,13 @@ def test_idor_binding():
 def test_state_conflict():
     db = agdb.SessionLocal()
     out = {"summary": "ok"}
-    sug = AISuggestion(ticket_id="TKT-2", kind="summarize", payload_json={"out": out, "metadata": {"sensitivity_level": "low"}}, model_version="v1", rejected=True)
+    sug = AISuggestion(
+        ticket_id="TKT-2",
+        kind="summarize",
+        payload_json={"out": out, "metadata": {"sensitivity_level": "low"}},
+        model_version="v1",
+        rejected=True,
+    )
     db.add(sug)
     db.commit()
 
@@ -107,7 +132,12 @@ def test_state_conflict():
 def test_confidential_without_permission():
     db = agdb.SessionLocal()
     out = {"summary": "ok"}
-    sug = AISuggestion(ticket_id="TKT-3", kind="summarize", payload_json={"out": out, "metadata": {"sensitivity_level": "CONFIDENTIAL"}}, model_version="v1")
+    sug = AISuggestion(
+        ticket_id="TKT-3",
+        kind="summarize",
+        payload_json={"out": out, "metadata": {"sensitivity_level": "CONFIDENTIAL"}},
+        model_version="v1",
+    )
     db.add(sug)
     db.commit()
 
@@ -124,7 +154,12 @@ def test_confidential_without_permission():
 def test_missing_token():
     db = agdb.SessionLocal()
     out = {"summary": "ok"}
-    sug = AISuggestion(ticket_id="TKT-4", kind="summarize", payload_json={"out": out, "metadata": {"sensitivity_level": "low"}}, model_version="v1")
+    sug = AISuggestion(
+        ticket_id="TKT-4",
+        kind="summarize",
+        payload_json={"out": out, "metadata": {"sensitivity_level": "low"}},
+        model_version="v1",
+    )
     db.add(sug)
     db.commit()
 

@@ -1,11 +1,10 @@
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
-
 from app.core.audit import write_audit
 from app.core.auth import has_permission
 from app.core.org_scope import get_scope_root_path
 from app.models.models import Ticket
+from sqlalchemy.orm import Session
 
 
 def create_ticket(

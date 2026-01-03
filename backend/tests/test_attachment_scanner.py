@@ -1,5 +1,4 @@
 import io
-
 from unittest.mock import patch
 
 from app.models.models import Attachment, AuditLog
@@ -19,7 +18,15 @@ def _make_s3_get_object(body_bytes: bytes):
 def test_scanner_updates_db_and_writes_audit_clean(db):
     # create a PENDING attachment using the test db session
     session = db
-    att = Attachment(ticket_id=1, uploaded_by=None, object_key="k-sc-1", original_filename="f.txt", mime="text/plain", size=4, scanned_status="PENDING")
+    att = Attachment(
+        ticket_id=1,
+        uploaded_by=None,
+        object_key="k-sc-1",
+        original_filename="f.txt",
+        mime="text/plain",
+        size=4,
+        scanned_status="PENDING",
+    )
     session.add(att)
     session.commit()
     # reload from DB to get a session-bound instance and id
@@ -31,7 +38,10 @@ def test_scanner_updates_db_and_writes_audit_clean(db):
     with patch("scripts.attachment_scanner.boto3.client") as mock_boto:
         mock_client = mock_boto.return_value
         mock_client.get_object.return_value = _make_s3_get_object(b"data")
-        with patch("scripts.attachment_scanner.perform_clamav_instream_scan", return_value="CLEAN"):
+        with patch(
+            "scripts.attachment_scanner.perform_clamav_instream_scan",
+            return_value="CLEAN",
+        ):
             with patch("scripts.attachment_scanner.SessionLocal", new=lambda: session):
                 settings = type("S", (), {})()
                 # minimal settings required
@@ -59,7 +69,15 @@ def test_scanner_updates_db_and_writes_audit_clean(db):
 
 def test_scanner_marks_infected(db):
     session = db
-    att = Attachment(ticket_id=2, uploaded_by=None, object_key="k-sc-2", original_filename="f2.txt", mime="text/plain", size=6, scanned_status="PENDING")
+    att = Attachment(
+        ticket_id=2,
+        uploaded_by=None,
+        object_key="k-sc-2",
+        original_filename="f2.txt",
+        mime="text/plain",
+        size=6,
+        scanned_status="PENDING",
+    )
     session.add(att)
     session.commit()
     att = session.query(Attachment).filter(Attachment.object_key == "k-sc-2").first()
@@ -69,7 +87,10 @@ def test_scanner_marks_infected(db):
     with patch("scripts.attachment_scanner.boto3.client") as mock_boto:
         mock_client = mock_boto.return_value
         mock_client.get_object.return_value = _make_s3_get_object(b"eicar")
-        with patch("scripts.attachment_scanner.perform_clamav_instream_scan", return_value="INFECTED"):
+        with patch(
+            "scripts.attachment_scanner.perform_clamav_instream_scan",
+            return_value="INFECTED",
+        ):
             with patch("scripts.attachment_scanner.SessionLocal", new=lambda: session):
                 settings = type("S", (), {})()
                 settings.S3_ENDPOINT = "http://minio:9000"

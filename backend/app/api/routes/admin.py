@@ -1,7 +1,6 @@
-from fastapi import APIRouter, Depends
-
-from app.core.auth import check_permission, check_role, get_current_user
+from app.core.auth import check_permission, check_role
 from app.models.models import User
+from fastapi import APIRouter, Depends
 
 router = APIRouter()
 

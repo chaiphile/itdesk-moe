@@ -1,7 +1,16 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Text, Boolean
-from sqlalchemy.orm import declarative_base, sessionmaker
-from datetime import datetime
 import os
+from datetime import datetime
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(__file__)
 # If AI_GATEWAY_DB is provided prefer it (e.g. a postgresql:// URL). Otherwise fall back to a local sqlite file.
@@ -10,7 +19,9 @@ if AI_GATEWAY_DB:
     ENGINE = create_engine(AI_GATEWAY_DB)
 else:
     DB_PATH = os.path.join(BASE_DIR, "ai_gateway.db")
-    ENGINE = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+    ENGINE = create_engine(
+        f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False}
+    )
 
 SessionLocal = sessionmaker(bind=ENGINE)
 Base = declarative_base()

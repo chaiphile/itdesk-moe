@@ -1,9 +1,8 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
-
 from app.core.config import get_settings
 from app.db.health import check_db
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 

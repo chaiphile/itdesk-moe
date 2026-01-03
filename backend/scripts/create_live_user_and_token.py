@@ -1,7 +1,7 @@
-from app.core.config import get_settings
 from app.core.auth import create_access_token
-from app.db.session import SessionLocal, engine, Base
-from app.models.models import User, Role
+from app.core.config import get_settings
+from app.db.session import Base, SessionLocal, engine
+from app.models.models import Role, User
 from passlib.context import CryptContext
 
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")

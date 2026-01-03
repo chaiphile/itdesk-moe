@@ -3,8 +3,8 @@
 This module provides functionality to redact sensitive information from
 attachment metadata before exporting tickets and their attachments.
 """
+
 from typing import Any, Dict, List, Optional
-from datetime import datetime
 
 
 class RedactionRule:
@@ -41,6 +41,7 @@ class RedactionRule:
     def _hash_value(self, value: Any) -> str:
         """Hash a sensitive value."""
         import hashlib
+
         if isinstance(value, str):
             return hashlib.sha256(value.encode()).hexdigest()[:16]
         return "[REDACTED]"
@@ -87,7 +88,6 @@ class RedactionEngine:
             Redacted copy of the metadata
         """
         redacted = attachment_data.copy()
-        rules = self.ruleset.get_rules_for_level(sensitivity_level)
 
         # Apply attachment-specific redactions
         if sensitivity_level == "CONFIDENTIAL":
@@ -151,7 +151,10 @@ class RedactionEngine:
         result = []
         for att in attachments:
             # Filter out RESTRICTED attachments unless user has permission
-            if att.get("sensitivity_level") == "RESTRICTED" and not has_export_permission:
+            if (
+                att.get("sensitivity_level") == "RESTRICTED"
+                and not has_export_permission
+            ):
                 continue
 
             # Redact metadata

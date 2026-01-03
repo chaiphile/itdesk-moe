@@ -1,10 +1,9 @@
 from typing import List
 
-from sqlalchemy.orm import Session
-
 from app.core.auth import has_permission
 from app.core.org_scope import get_scope_root_path
 from app.models.models import OrgUnit, TeamMember, Ticket
+from sqlalchemy.orm import Session
 
 
 def list_agent_queues(db: Session, current_user) -> List[Ticket]:

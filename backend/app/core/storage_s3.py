@@ -1,10 +1,20 @@
 from typing import Optional
-import boto3
 from urllib.parse import urlsplit, urlunsplit
+
+import boto3
 
 
 class StorageS3Client:
-    def __init__(self, *, endpoint_url: str, access_key: str, secret_key: str, region: str = "us-east-1", secure: bool = False, public_base_url: Optional[str] = None):
+    def __init__(
+        self,
+        *,
+        endpoint_url: str,
+        access_key: str,
+        secret_key: str,
+        region: str = "us-east-1",
+        secure: bool = False,
+        public_base_url: Optional[str] = None
+    ):
         self._client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,
@@ -22,10 +32,14 @@ class StorageS3Client:
         orig = urlsplit(url)
         public = urlsplit(self._public_base_url)
 
-        new = urlunsplit((public.scheme, public.netloc, orig.path, orig.query, orig.fragment))
+        new = urlunsplit(
+            (public.scheme, public.netloc, orig.path, orig.query, orig.fragment)
+        )
         return new
 
-    def presign_put(self, *, bucket: str, key: str, content_type: str, expires_seconds: int) -> str:
+    def presign_put(
+        self, *, bucket: str, key: str, content_type: str, expires_seconds: int
+    ) -> str:
         params = {"Bucket": bucket, "Key": key, "ContentType": content_type}
         url = self._client.generate_presigned_url(
             "put_object", Params=params, ExpiresIn=int(expires_seconds)

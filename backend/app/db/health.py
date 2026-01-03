@@ -1,6 +1,5 @@
-from sqlalchemy import create_engine, text
-
 from app.core.config import get_settings
+from sqlalchemy import create_engine, text
 
 
 def check_db() -> bool:

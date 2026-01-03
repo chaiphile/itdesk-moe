@@ -1,8 +1,6 @@
 """Tests for database connection and health checks."""
 
-import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 
 
 class TestDatabaseConnection:
@@ -48,7 +46,7 @@ class TestDatabaseConnection:
     def test_database_cascade_delete(self, db, sample_user, sample_ticket):
         """Test that cascade delete works (if configured)."""
         user_id = sample_user.id
-        ticket_id = sample_ticket.id
+        _ticket_id = sample_ticket.id
 
         # Delete user
         db.delete(sample_user)

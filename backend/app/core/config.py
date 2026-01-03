@@ -1,6 +1,11 @@
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings
+# Prefer pydantic v1's BaseSettings when available (compatible with many FastAPI versions);
+# otherwise fall back to pydantic v2's `pydantic_settings` helper.
+try:
+    from pydantic import BaseSettings  # type: ignore
+except Exception:
+    from pydantic_settings import BaseSettings  # type: ignore
 
 
 class Settings(BaseSettings):

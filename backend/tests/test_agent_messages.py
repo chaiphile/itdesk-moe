@@ -104,7 +104,11 @@ def test_agent_message_posting_and_access(client, db):
 
     # 1) agent_a posts INTERNAL to t1 => 200 and audit exists
     headers = _auth_headers_for_user(agent_a.username)
-    resp = client.post(f"/agent/tickets/{t1.id}/messages", json={"type": "INTERNAL", "body": " internal note "}, headers=headers)
+    resp = client.post(
+        f"/agent/tickets/{t1.id}/messages",
+        json={"type": "INTERNAL", "body": " internal note "},
+        headers=headers,
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["ticket_id"] == t1.id
@@ -112,38 +116,66 @@ def test_agent_message_posting_and_access(client, db):
     assert msg is not None and msg.body == "internal note"
     audit = (
         db.query(AuditLog)
-        .filter(AuditLog.action == "TICKET_MESSAGE_CREATED", AuditLog.entity_type == "ticket_message", AuditLog.entity_id == msg.id)
+        .filter(
+            AuditLog.action == "TICKET_MESSAGE_CREATED",
+            AuditLog.entity_type == "ticket_message",
+            AuditLog.entity_id == msg.id,
+        )
         .first()
     )
     assert audit is not None
 
     # 2) agent_a posts PUBLIC to t1 => 200
-    resp = client.post(f"/agent/tickets/{t1.id}/messages", json={"type": "PUBLIC", "body": "public note"}, headers=headers)
+    resp = client.post(
+        f"/agent/tickets/{t1.id}/messages",
+        json={"type": "PUBLIC", "body": "public note"},
+        headers=headers,
+    )
     assert resp.status_code == 200
 
     # 3) normal_user (non-agent) calling agent endpoint => 403
     headers = _auth_headers_for_user(normal_user.username)
-    resp = client.post(f"/agent/tickets/{t1.id}/messages", json={"type": "PUBLIC", "body": "x"}, headers=headers)
+    resp = client.post(
+        f"/agent/tickets/{t1.id}/messages",
+        json={"type": "PUBLIC", "body": "x"},
+        headers=headers,
+    )
     assert resp.status_code == 403
 
     # 4) agent_a posts to confidential t2 without CONFIDENTIAL_VIEW => 404 + PERMISSION_DENIED audit
     headers = _auth_headers_for_user(agent_a.username)
-    resp = client.post(f"/agent/tickets/{t2.id}/messages", json={"type": "PUBLIC", "body": "x"}, headers=headers)
+    resp = client.post(
+        f"/agent/tickets/{t2.id}/messages",
+        json={"type": "PUBLIC", "body": "x"},
+        headers=headers,
+    )
     assert resp.status_code == 404
     audit = (
         db.query(AuditLog)
-        .filter(AuditLog.entity_type == "ticket_message", AuditLog.entity_id == t2.id, AuditLog.action == "PERMISSION_DENIED")
+        .filter(
+            AuditLog.entity_type == "ticket_message",
+            AuditLog.entity_id == t2.id,
+            AuditLog.action == "PERMISSION_DENIED",
+        )
         .first()
     )
     assert audit is not None
 
     # 5) out-of-scope or wrong-team ticket => 403 + PERMISSION_DENIED audit
     headers = _auth_headers_for_user(agent_a.username)
-    resp = client.post(f"/agent/tickets/{t_out.id}/messages", json={"type": "PUBLIC", "body": "x"}, headers=headers)
+    resp = client.post(
+        f"/agent/tickets/{t_out.id}/messages",
+        json={"type": "PUBLIC", "body": "x"},
+        headers=headers,
+    )
     assert resp.status_code == 403
     audit = (
         db.query(AuditLog)
-        .filter(AuditLog.entity_type == "ticket_message", AuditLog.entity_id == t_out.id, AuditLog.action == "PERMISSION_DENIED")
+        .filter(
+            AuditLog.entity_type == "ticket_message",
+            AuditLog.entity_id == t_out.id,
+            AuditLog.action == "PERMISSION_DENIED",
+        )
         .first()
     )
     assert audit is not None

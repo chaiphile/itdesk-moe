@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Script to seed the database with default roles."""
 
-from sqlalchemy.orm import sessionmaker
 from app.db.session import engine
 from app.models.models import Role
+from sqlalchemy.orm import sessionmaker
 
 # Create session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def seed_roles():
     """Seed default roles."""
@@ -39,6 +40,7 @@ def seed_roles():
         print(f"Error seeding roles: {e}")
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     seed_roles()

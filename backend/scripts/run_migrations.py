@@ -9,7 +9,7 @@ Behavior:
 """
 import os
 import sys
-import time
+
 from sqlalchemy import create_engine, text
 
 
@@ -43,7 +43,9 @@ def main() -> int:
     engine = create_engine(db_url)
     with engine.connect() as conn:
         # check alembic_version table
-        res = conn.execute(text("SELECT to_regclass('public.alembic_version')")).scalar()
+        res = conn.execute(
+            text("SELECT to_regclass('public.alembic_version')")
+        ).scalar()
         if res:
             print("alembic_version table exists — running upgrade heads")
             rc = os.system("alembic -c alembic.ini upgrade heads")
@@ -52,7 +54,9 @@ def main() -> int:
         # if alembic_version missing but tables exist, assume schema already present
         tbl_check = conn.execute(text("SELECT to_regclass('public.users')")).scalar()
         if tbl_check:
-            print("Detected existing schema (users table). Stamping alembic heads without running migrations.")
+            print(
+                "Detected existing schema (users table). Stamping alembic heads without running migrations."
+            )
             rc = os.system("alembic -c alembic.ini stamp heads")
             return rc
 
