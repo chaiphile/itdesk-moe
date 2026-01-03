@@ -1,0 +1,51 @@
+name: ai-gateway CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  docker-tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Show environment
+        run: |
+          uname -a || true
+          docker --version
+
+      - name: Build ai-gateway image
+        run: |
+          docker compose build ai-gateway
+
+      - name: Start Postgres for migrations
+        run: |
+          docker compose up -d postgres
+
+      - name: Validate migrations apply cleanly
+        run: |
+          set -e
+          # Apply migrations (uses AI_GATEWAY_DB from compose environment)
+          docker compose run --rm -w /app ai-gateway sh -c "alembic -c ai_gateway/alembic.ini upgrade head"
+          # Show current
+          docker compose run --rm -w /app ai-gateway sh -c "alembic -c ai_gateway/alembic.ini current"
+          # Ensure exactly one head
+          COUNT=$(docker compose run --rm -w /app ai-gateway sh -c "alembic -c ai_gateway/alembic.ini heads | wc -l")
+          echo "heads count: $COUNT"
+          if [ "$COUNT" -ne 1 ]; then
+            echo "ERROR: expected exactly 1 head"; exit 2
+          fi
+
+      - name: Run tests inside ai-gateway container
+        run: |
+          docker compose run --rm -w /app ai-gateway python -m pytest ai_gateway/tests -q

@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  ai-gateway:
+    image: itdesk-moe-ai-gateway:latest
+    restart: unless-stopped
+    env_file:
+      - .env.prod   # do NOT commit this file; keep production secrets out of repo
+    environment:
+      - AI_GATEWAY_DB=${AI_GATEWAY_DB}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL}
+      - AI_JSON_SCHEMA_STRICT=${AI_JSON_SCHEMA_STRICT:-true}
+      - PII_MASKING=${PII_MASKING:-true}
+      - AI_GATEWAY_INIT_DB=${AI_GATEWAY_INIT_DB:-false}
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres
+
+# Example: set AI_GATEWAY_DB to a full postgres URL in your production environment:
+# AI_GATEWAY_DB=postgresql://<user>:<password>@<host>:<port>/<db>
