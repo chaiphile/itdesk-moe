@@ -53,6 +53,18 @@ jobs:
         run: |
           docker compose up -d postgres
 
+      - name: Wait for Postgres to accept connections
+        run: |
+          echo "Waiting for Postgres to accept connections..."
+          for i in $(seq 1 60); do
+            docker compose run --rm postgres sh -c "pg_isready -h postgres -p ${POSTGRES_PORT} -U ${POSTGRES_USER}" && break
+            echo "Postgres not ready yet ($i)..."
+            sleep 1
+          done
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'postgres' }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT || '5432' }}
+
       - name: Validate migrations apply cleanly
         run: |
           set -e
