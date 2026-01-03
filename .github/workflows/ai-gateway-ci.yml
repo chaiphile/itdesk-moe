@@ -24,6 +24,20 @@ jobs:
           uname -a || true
           docker --version
 
+      - name: Create .env for docker-compose
+        run: |
+          cat > .env <<EOF
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          MINIO_ROOT_USER=${MINIO_ROOT_USER}
+          MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+          MINIO_BUCKET=${MINIO_BUCKET}
+          EOF
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'change_me' }}
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER || 'minio' }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD || 'change_me' }}
+          MINIO_BUCKET: ticketing-attachments
+
       - name: Build ai-gateway image
         run: |
           docker compose build ai-gateway

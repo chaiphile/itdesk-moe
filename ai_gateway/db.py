@@ -25,6 +25,8 @@ class AISuggestion(Base):
     model_version = Column(String)
     accepted = Column(Boolean, nullable=True)
     rejected = Column(Boolean, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    feedback_json = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

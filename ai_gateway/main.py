@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
+from typing import Optional
 import os
 import json
 from ai_gateway.clients import OpenRouterClient
@@ -42,6 +43,18 @@ class SummarizeOutput(BaseModel):
     warnings: List[str]
     class Config:
         extra = "forbid"
+
+
+class AcceptInput(BaseModel):
+    ticket_id: str
+    comment: Optional[str] = None
+    edited_payload_json: Optional[Dict[str, Any]] = None
+
+
+class RejectInput(BaseModel):
+    ticket_id: str
+    reason_code: str
+    comment: Optional[str] = None
 
 
 AI_GATEWAY_INIT_DB = os.getenv("AI_GATEWAY_INIT_DB", "true").lower() in ("1", "true", "yes")
@@ -135,8 +148,8 @@ def summarize(payload: SummarizeInput, request: Request, db=Depends(get_db_sessi
             db.commit()
             raise HTTPException(status_code=502, detail="ai output failed schema validation")
 
-    # Persist suggestion and audit creation
-    suggestion = AISuggestion(ticket_id=payload.ticket_id, kind="summarize", payload_json=out, model_version=OPENROUTER_MODEL, accepted=None, rejected=None, created_at=datetime.utcnow())
+    # Persist suggestion and audit creation. Keep metadata alongside output for later checks.
+    suggestion = AISuggestion(ticket_id=payload.ticket_id, kind="summarize", payload_json={"out": out, "metadata": payload.metadata}, model_version=OPENROUTER_MODEL, accepted=None, rejected=None, decided_at=None, feedback_json=None, created_at=datetime.utcnow())
     db.add(suggestion)
     db.commit()
 
@@ -144,3 +157,87 @@ def summarize(payload: SummarizeInput, request: Request, db=Depends(get_db_sessi
     db.commit()
 
     return out
+
+
+def _parse_requester_perms(request: Request):
+    raw = request.headers.get("x-requester-permissions") or ""
+    perms = [p.strip().upper() for p in raw.split(",") if p.strip()]
+    return perms
+
+
+@app.post("/ai/suggestions/{suggestion_id}/accept")
+def accept_suggestion(suggestion_id: int, payload: AcceptInput, request: Request, db=Depends(get_db_session)):
+    require_internal_token(request)
+
+    sug = db.query(AISuggestion).filter(AISuggestion.id == suggestion_id).first()
+    if not sug:
+        raise HTTPException(status_code=404, detail="not found")
+
+    # binding: ensure suggestion belongs to provided ticket_id
+    if str(sug.ticket_id) != str(payload.ticket_id):
+        raise HTTPException(status_code=404, detail="not found")
+
+    # confidentiality anti-leak: check stored metadata
+    metadata = (sug.payload_json or {}).get("metadata") or {}
+    sensitivity = metadata.get("sensitivity_level")
+    requester_perms = _parse_requester_perms(request)
+    if str(sensitivity).upper() == "CONFIDENTIAL" and "CONFIDENTIAL_VIEW" not in requester_perms:
+        db.add(AuditEvent(event_type="PERMISSION_DENIED", ticket_id=payload.ticket_id, payload_json={"reason": "confidential_without_permission"}, created_at=datetime.utcnow()))
+        db.commit()
+        raise HTTPException(status_code=404, detail="not found")
+
+    # state checks
+    if sug.rejected:
+        raise HTTPException(status_code=409, detail="suggestion already rejected")
+    if sug.accepted:
+        return {"status": "ACCEPTED"}
+
+    # apply edits if provided
+    if payload.edited_payload_json is not None:
+        # if we stored out+metadata, update the out
+        cur = sug.payload_json or {}
+        cur["out"] = payload.edited_payload_json
+        sug.payload_json = cur
+
+    sug.accepted = True
+    sug.rejected = False
+    sug.decided_at = datetime.utcnow()
+    sug.feedback_json = {"comment": payload.comment}
+    db.add(sug)
+    db.add(AuditEvent(event_type="AI_SUGGESTION_ACCEPTED", ticket_id=payload.ticket_id, payload_json={"suggestion_id": sug.id, "ticket_id": payload.ticket_id}, created_at=datetime.utcnow()))
+    db.commit()
+    return {"status": "ACCEPTED"}
+
+
+@app.post("/ai/suggestions/{suggestion_id}/reject")
+def reject_suggestion(suggestion_id: int, payload: RejectInput, request: Request, db=Depends(get_db_session)):
+    require_internal_token(request)
+
+    sug = db.query(AISuggestion).filter(AISuggestion.id == suggestion_id).first()
+    if not sug:
+        raise HTTPException(status_code=404, detail="not found")
+
+    if str(sug.ticket_id) != str(payload.ticket_id):
+        raise HTTPException(status_code=404, detail="not found")
+
+    metadata = (sug.payload_json or {}).get("metadata") or {}
+    sensitivity = metadata.get("sensitivity_level")
+    requester_perms = _parse_requester_perms(request)
+    if str(sensitivity).upper() == "CONFIDENTIAL" and "CONFIDENTIAL_VIEW" not in requester_perms:
+        db.add(AuditEvent(event_type="PERMISSION_DENIED", ticket_id=payload.ticket_id, payload_json={"reason": "confidential_without_permission"}, created_at=datetime.utcnow()))
+        db.commit()
+        raise HTTPException(status_code=404, detail="not found")
+
+    if sug.accepted:
+        raise HTTPException(status_code=409, detail="suggestion already accepted")
+    if sug.rejected:
+        return {"status": "REJECTED"}
+
+    sug.rejected = True
+    sug.accepted = False
+    sug.decided_at = datetime.utcnow()
+    sug.feedback_json = {"reason_code": payload.reason_code, "comment": payload.comment}
+    db.add(sug)
+    db.add(AuditEvent(event_type="AI_SUGGESTION_REJECTED", ticket_id=payload.ticket_id, payload_json={"suggestion_id": sug.id, "reason_code": payload.reason_code}, created_at=datetime.utcnow()))
+    db.commit()
+    return {"status": "REJECTED"}
