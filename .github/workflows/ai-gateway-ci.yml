@@ -27,13 +27,20 @@ jobs:
       - name: Create .env for docker-compose
         run: |
           cat > .env <<EOF
+          POSTGRES_USER=${POSTGRES_USER}
           POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          POSTGRES_PORT=${POSTGRES_PORT}
+          DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
           MINIO_ROOT_USER=${MINIO_ROOT_USER}
           MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
           MINIO_BUCKET=${MINIO_BUCKET}
           EOF
         env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'postgres' }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || 'change_me' }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB || 'ticketing_db' }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT || '5432' }}
           MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER || 'minio' }}
           MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD || 'change_me' }}
           MINIO_BUCKET: ticketing-attachments
